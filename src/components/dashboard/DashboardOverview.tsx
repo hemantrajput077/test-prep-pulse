@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import StatsCard from "@/components/ui/custom/StatsCard";
 import { Progress } from "@/components/ui/progress";
+import PerformanceChart from "@/components/dashboard/PerformanceChart";
+import TopicAnalysis from "@/components/dashboard/TopicAnalysis";
 
 const DashboardOverview = () => {
   const [activeTab, setActiveTab] = useState("overview");
@@ -130,16 +132,34 @@ const DashboardOverview = () => {
           </TabsContent>
           
           <TabsContent value="performance" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Performance Analysis</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <p className="text-muted-foreground">Detailed performance analytics will appear here.</p>
-                </div>
-              </CardContent>
-            </Card>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <PerformanceChart />
+              <TopicAnalysis />
+              
+              <Card className="lg:col-span-2">
+                <CardHeader>
+                  <CardTitle>Performance Insights</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="p-4 border rounded-lg bg-muted/30">
+                      <h3 className="font-semibold mb-2">Strength Areas</h3>
+                      <p className="text-muted-foreground">You excel in Algebra, Data Structures, and Grammar. Keep up the good work!</p>
+                    </div>
+                    
+                    <div className="p-4 border rounded-lg bg-muted/30">
+                      <h3 className="font-semibold mb-2">Areas for Improvement</h3>
+                      <p className="text-muted-foreground">Focus on Probability, Reading Comprehension, and Binary Search to improve your overall performance.</p>
+                    </div>
+                    
+                    <div className="p-4 border rounded-lg bg-muted/30">
+                      <h3 className="font-semibold mb-2">Practice Recommendation</h3>
+                      <p className="text-muted-foreground">Try spending at least 30 minutes daily on your weak areas to see significant improvement.</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
           
           <TabsContent value="recommendations" className="space-y-4">

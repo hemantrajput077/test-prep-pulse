@@ -1,9 +1,11 @@
 
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 interface TestCardProps {
+  id: string;
   title: string;
   description: string;
   icon: React.ReactNode;
@@ -11,10 +13,10 @@ interface TestCardProps {
   questions: number;
   duration: number;
   difficulty: "easy" | "medium" | "hard";
-  onStart?: () => void;
 }
 
 const TestCard = ({
+  id,
   title,
   description,
   icon,
@@ -22,8 +24,9 @@ const TestCard = ({
   questions,
   duration,
   difficulty,
-  onStart,
 }: TestCardProps) => {
+  const navigate = useNavigate();
+  
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
       case "easy":
@@ -35,6 +38,10 @@ const TestCard = ({
       default:
         return "bg-slate-100 text-slate-800 hover:bg-slate-200";
     }
+  };
+  
+  const handleStartTest = () => {
+    navigate(`/test-session/${id}`);
   };
 
   return (
@@ -75,7 +82,7 @@ const TestCard = ({
       <CardFooter className="p-4 border-t bg-muted/40">
         <Button 
           className="w-full bg-gradient-to-r from-brand-500 to-accent-600 hover:from-brand-600 hover:to-accent-700"
-          onClick={onStart}
+          onClick={handleStartTest}
         >
           Start Test
         </Button>
