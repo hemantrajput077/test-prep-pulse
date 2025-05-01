@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 interface TestCardProps {
-  id: string;
+  id?: string;
   title: string;
   description: string;
   icon: React.ReactNode;
@@ -16,7 +16,7 @@ interface TestCardProps {
 }
 
 const TestCard = ({
-  id,
+  id = "demo-test",
   title,
   description,
   icon,

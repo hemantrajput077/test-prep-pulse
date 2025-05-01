@@ -22,7 +22,7 @@ const Tests = () => {
   
   const quantTests = [
     {
-      id: 1,
+      id: "1",
       title: "Basic Arithmetic",
       description: "Practice fundamental arithmetic operations with this beginner-friendly test.",
       category: "Quantitative",
@@ -37,7 +37,7 @@ const Tests = () => {
       ),
     },
     {
-      id: 2,
+      id: "2",
       title: "Advanced Algebra",
       description: "Challenge yourself with complex algebraic problems and equations.",
       category: "Quantitative",
@@ -55,7 +55,7 @@ const Tests = () => {
   
   const logicalTests = [
     {
-      id: 3,
+      id: "3",
       title: "Pattern Recognition",
       description: "Identify patterns and sequences in this logical reasoning test.",
       category: "Logical Reasoning",
@@ -72,7 +72,7 @@ const Tests = () => {
       ),
     },
     {
-      id: 4,
+      id: "4",
       title: "Syllogisms",
       description: "Master deductive reasoning through syllogisms and logical arguments.",
       category: "Logical Reasoning",
@@ -92,7 +92,7 @@ const Tests = () => {
   
   const verbalTests = [
     {
-      id: 5,
+      id: "5",
       title: "Reading Comprehension",
       description: "Improve your reading comprehension skills with passage-based questions.",
       category: "Verbal",
@@ -110,7 +110,7 @@ const Tests = () => {
       ),
     },
     {
-      id: 6,
+      id: "6",
       title: "Vocabulary Builder",
       description: "Enhance your vocabulary with a focus on commonly tested words.",
       category: "Verbal",
@@ -131,7 +131,7 @@ const Tests = () => {
   
   const codingTests = [
     {
-      id: 7,
+      id: "7",
       title: "Data Structures Basics",
       description: "Practice fundamental data structures like arrays, linked lists, and stacks.",
       category: "Coding",
@@ -146,7 +146,7 @@ const Tests = () => {
       ),
     },
     {
-      id: 8,
+      id: "8",
       title: "Algorithm Challenges",
       description: "Solve advanced algorithmic problems focusing on efficiency and optimization.",
       category: "Coding",
@@ -234,6 +234,7 @@ const Tests = () => {
                 {filteredTests.map((test) => (
                   <TestCard
                     key={test.id}
+                    id={test.id}
                     title={test.title}
                     description={test.description}
                     icon={test.icon}
@@ -263,6 +264,7 @@ const Tests = () => {
           <TabsContent value="recommended">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <TestCard
+                id="rec-1"
                 title="Probability and Statistics"
                 description="Improve your understanding of probability concepts and statistical analysis."
                 icon={
@@ -277,6 +279,7 @@ const Tests = () => {
                 difficulty="medium"
               />
               <TestCard
+                id="rec-2"
                 title="Critical Reasoning"
                 description="Enhance your logical thinking and critical reasoning skills with complex puzzles."
                 icon={
