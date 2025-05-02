@@ -1,66 +1,40 @@
 
-import { Link, useLocation } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { User } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
 
 const Navbar = () => {
-  const location = useLocation();
-  
-  const isActive = (path: string) => {
-    return location.pathname === path;
-  };
-  
-  const navLinks = [
-    { name: "Home", path: "/" },
-    { name: "Dashboard", path: "/dashboard" },
-    { name: "Tests", path: "/tests" },
-    { name: "Practice", path: "/practice" },
-  ];
+  const { user, signOut } = useAuth();
 
   return (
-    <header className="border-b sticky top-0 bg-background z-10">
-      <div className="container flex items-center justify-between h-16 px-4 md:px-6">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-500 to-accent-600 flex items-center justify-center text-white font-bold">
-            TP
-          </div>
-          <span className="font-bold text-xl">TestPrepPulse</span>
-        </Link>
+    <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="container flex h-14 max-w-screen-2xl items-center">
+        <div className="mr-4 flex">
+          <Link to="/" className="mr-6 flex items-center space-x-2">
+            <span className="font-bold text-xl gradient-text">PrepMaster</span>
+          </Link>
+          
+          {user && (
+            <nav className="hidden md:flex items-center space-x-6 text-sm font-medium">
+              <Link to="/dashboard" className="transition-colors hover:text-foreground/80 text-foreground/60">Dashboard</Link>
+              <Link to="/tests" className="transition-colors hover:text-foreground/80 text-foreground/60">Tests</Link>
+              <Link to="/practice" className="transition-colors hover:text-foreground/80 text-foreground/60">Practice</Link>
+            </nav>
+          )}
+        </div>
         
-        <nav className="hidden md:flex items-center gap-6">
-          {navLinks.map((link) => (
-            <Link 
-              key={link.path} 
-              to={link.path}
-              className={cn(
-                "text-sm font-medium transition-colors hover:text-primary relative py-2",
-                isActive(link.path) ? "text-primary" : "text-muted-foreground"
-              )}
-            >
-              {link.name}
-              {isActive(link.path) && (
-                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent-600"></span>
-              )}
+        <div className="flex flex-1 items-center justify-end space-x-2">
+          {user ? (
+            <Button variant="ghost" onClick={signOut}>
+              Sign Out
+            </Button>
+          ) : (
+            <Link to="/auth">
+              <Button className="bg-brand-500 hover:bg-brand-600">
+                Sign In
+              </Button>
             </Link>
-          ))}
-        </nav>
-        
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="hidden md:flex gap-1">
-            <User className="w-4 h-4" />
-            Sign In
-          </Button>
-          <Button size="sm" className="hidden md:flex bg-gradient-to-r from-brand-500 to-accent-600 hover:from-brand-600 hover:to-accent-700">
-            Get Started
-          </Button>
-          <Button variant="ghost" size="icon" className="md:hidden">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
-              <line x1="4" x2="20" y1="12" y2="12"></line>
-              <line x1="4" x2="20" y1="6" y2="6"></line>
-              <line x1="4" x2="20" y1="18" y2="18"></line>
-            </svg>
-          </Button>
+          )}
         </div>
       </div>
     </header>

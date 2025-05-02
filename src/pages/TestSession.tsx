@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import MainLayout from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,77 +9,127 @@ import { Progress } from "@/components/ui/progress";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
-// Sample test data
-const testData = {
-  id: "aptitude-test-1",
-  title: "Quantitative Aptitude Test",
-  duration: 30, // minutes
-  questions: [
-    {
-      id: 1,
-      text: "If a train travels at a speed of 60 km/hr, how long will it take to cover a distance of 240 km?",
-      options: [
-        { id: "a", text: "3 hours" },
-        { id: "b", text: "4 hours" },
-        { id: "c", text: "5 hours" },
-        { id: "d", text: "6 hours" }
-      ],
-      correctAnswer: "b"
-    },
-    {
-      id: 2,
-      text: "Find the next number in the series: 2, 6, 12, 20, 30, ...",
-      options: [
-        { id: "a", text: "40" },
-        { id: "b", text: "42" },
-        { id: "c", text: "36" },
-        { id: "d", text: "48" }
-      ],
-      correctAnswer: "b"
-    },
-    {
-      id: 3,
-      text: "If 15 workers can build a wall in 48 hours, how many workers are needed to build the same wall in 30 hours?",
-      options: [
-        { id: "a", text: "20" },
-        { id: "b", text: "24" },
-        { id: "c", text: "22" },
-        { id: "d", text: "26" }
-      ],
-      correctAnswer: "b"
-    },
-    {
-      id: 4,
-      text: "A car travels at a speed of 50 km/hr for 2 hours and then at a speed of 70 km/hr for 3 hours. Find the average speed for the entire journey.",
-      options: [
-        { id: "a", text: "60 km/hr" },
-        { id: "b", text: "62 km/hr" },
-        { id: "c", text: "58 km/hr" },
-        { id: "d", text: "65 km/hr" }
-      ],
-      correctAnswer: "b"
-    },
-    {
-      id: 5,
-      text: "If a = 5 and b = 7, then the value of a² + b² - 2ab is:",
-      options: [
-        { id: "a", text: "0" },
-        { id: "b", text: "4" },
-        { id: "c", text: "8" },
-        { id: "d", text: "16" }
-      ],
-      correctAnswer: "b"
-    }
-  ]
-};
+interface Question {
+  id: number;
+  content: string;
+  options: { id: string; text: string }[];
+  correct_answer: string;
+}
+
+interface Test {
+  id: string;
+  title: string;
+  duration: number;
+  description: string;
+}
 
 const TestSession = () => {
   const navigate = useNavigate();
   const { testId } = useParams();
+  const { user } = useAuth();
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
-  const [timeLeft, setTimeLeft] = useState(testData.duration * 60); // seconds
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [testProgressId, setTestProgressId] = useState<string | null>(null);
+  
+  // Fetch test details
+  const { data: test, isLoading: testLoading } = useQuery({
+    queryKey: ['test', testId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('tests')
+        .select('*')
+        .eq('id', testId)
+        .single();
+      
+      if (error) throw error;
+      return data as Test;
+    }
+  });
+  
+  // Fetch questions for this test
+  const { data: questions, isLoading: questionsLoading } = useQuery({
+    queryKey: ['questions', testId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('questions')
+        .select('*')
+        .eq('test_id', testId);
+      
+      if (error) throw error;
+      
+      return data.map(q => ({
+        ...q,
+        options: typeof q.options === 'string' ? JSON.parse(q.options) : q.options
+      })) as Question[];
+    },
+    enabled: !!testId
+  });
+  
+  // Create test progress record when starting
+  const createTestProgressMutation = useMutation({
+    mutationFn: async () => {
+      if (!user || !testId) return null;
+      
+      const { data, error } = await supabase
+        .from('user_test_progress')
+        .insert({
+          user_id: user.id,
+          test_id: testId,
+          status: 'in_progress'
+        })
+        .select('id')
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      if (data) {
+        setTestProgressId(data.id);
+      }
+    },
+    onError: () => {
+      toast.error("Failed to start test", {
+        description: "Please try again."
+      });
+    }
+  });
+  
+  // Update test progress when completed
+  const completeTestMutation = useMutation({
+    mutationFn: async (score: number) => {
+      if (!testProgressId) return;
+      
+      const { error } = await supabase
+        .from('user_test_progress')
+        .update({
+          status: 'completed',
+          score,
+          completed_at: new Date().toISOString(),
+          time_spent: test!.duration * 60 - timeLeft
+        })
+        .eq('id', testProgressId);
+      
+      if (error) throw error;
+    },
+    onError: () => {
+      toast.error("Failed to save test results", {
+        description: "Your score may not be recorded."
+      });
+    }
+  });
+  
+  // Initialize test session
+  useEffect(() => {
+    if (test && !testProgressId) {
+      setTimeLeft(test.duration * 60);
+      createTestProgressMutation.mutate();
+    }
+  }, [test, testProgressId]);
   
   // Format time as MM:SS
   const formatTime = (seconds: number) => {
@@ -89,6 +140,8 @@ const TestSession = () => {
   
   // Timer effect
   useEffect(() => {
+    if (timeLeft <= 0) return;
+    
     const timer = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
@@ -101,9 +154,19 @@ const TestSession = () => {
     }, 1000);
     
     return () => clearInterval(timer);
-  }, []);
+  }, [timeLeft]);
   
-  const currentQuestion = testData.questions[currentQuestionIndex];
+  if (testLoading || questionsLoading || !questions || questions.length === 0) {
+    return (
+      <MainLayout>
+        <div className="container px-4 py-8 flex justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+        </div>
+      </MainLayout>
+    );
+  }
+  
+  const currentQuestion = questions[currentQuestionIndex];
   
   const handleAnswerChange = (value: string) => {
     setAnswers({
@@ -113,7 +176,7 @@ const TestSession = () => {
   };
   
   const goToNextQuestion = () => {
-    if (currentQuestionIndex < testData.questions.length - 1) {
+    if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1);
     }
   };
@@ -127,23 +190,30 @@ const TestSession = () => {
   const submitTest = () => {
     // Calculate score
     let score = 0;
-    testData.questions.forEach(question => {
-      if (answers[question.id] === question.correctAnswer) {
+    let totalQuestions = questions.length;
+    
+    questions.forEach(question => {
+      if (answers[question.id] === question.correct_answer) {
         score++;
       }
     });
     
-    const percentage = Math.round((score / testData.questions.length) * 100);
+    const percentage = Math.round((score / totalQuestions) * 100);
     
-    // Show toast notification
-    toast.success("Test submitted successfully!", {
-      description: `Your score: ${percentage}%`,
+    // Update test progress
+    completeTestMutation.mutate(percentage, {
+      onSuccess: () => {
+        // Show toast notification
+        toast.success("Test submitted successfully!", {
+          description: `Your score: ${percentage}%`,
+        });
+        
+        // Navigate back to dashboard
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 2000);
+      }
     });
-    
-    // Navigate back to dashboard
-    setTimeout(() => {
-      navigate('/dashboard');
-    }, 2000);
   };
   
   return (
@@ -154,9 +224,9 @@ const TestSession = () => {
             <CardHeader>
               <div className="flex flex-col md:flex-row md:items-center md:justify-between">
                 <div>
-                  <CardTitle>{testData.title}</CardTitle>
+                  <CardTitle>{test.title}</CardTitle>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Question {currentQuestionIndex + 1} of {testData.questions.length}
+                    Question {currentQuestionIndex + 1} of {questions.length}
                   </p>
                 </div>
                 <div className="mt-4 md:mt-0 py-2 px-4 bg-muted rounded-md font-mono text-lg">
@@ -165,14 +235,14 @@ const TestSession = () => {
               </div>
               
               <Progress 
-                value={(currentQuestionIndex + 1) / testData.questions.length * 100} 
+                value={(currentQuestionIndex + 1) / questions.length * 100} 
                 className="mt-4"
               />
             </CardHeader>
             <CardContent className="pt-4">
               <div className="space-y-6">
                 <div className="text-lg font-medium">
-                  {currentQuestion.text}
+                  {currentQuestion.content}
                 </div>
                 
                 <RadioGroup 
@@ -201,7 +271,7 @@ const TestSession = () => {
               </Button>
               
               <div className="flex gap-2">
-                {currentQuestionIndex === testData.questions.length - 1 ? (
+                {currentQuestionIndex === questions.length - 1 ? (
                   <Button onClick={submitTest}>Submit</Button>
                 ) : (
                   <Button onClick={goToNextQuestion}>Next</Button>
@@ -214,7 +284,7 @@ const TestSession = () => {
             <div className="bg-muted/30 p-4 rounded-lg">
               <h3 className="font-medium mb-2">Question Navigation</h3>
               <div className="flex flex-wrap gap-2">
-                {testData.questions.map((question, index) => (
+                {questions.map((question, index) => (
                   <button
                     key={question.id}
                     onClick={() => setCurrentQuestionIndex(index)}

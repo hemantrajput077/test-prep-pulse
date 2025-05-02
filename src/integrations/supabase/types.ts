@@ -121,23 +121,40 @@ export type Database = {
       questions: {
         Row: {
           content: string
+          correct_answer: string | null
           created_at: string | null
           id: number
+          options: Json | null
+          test_id: string | null
           updated_at: string | null
         }
         Insert: {
           content: string
+          correct_answer?: string | null
           created_at?: string | null
           id?: never
+          options?: Json | null
+          test_id?: string | null
           updated_at?: string | null
         }
         Update: {
           content?: string
+          correct_answer?: string | null
           created_at?: string | null
           id?: never
+          options?: Json | null
+          test_id?: string | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "questions_test_id_fkey"
+            columns: ["test_id"]
+            isOneToOne: false
+            referencedRelation: "tests"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       scores: {
         Row: {
@@ -167,6 +184,83 @@ export type Database = {
             columns: ["question_id"]
             isOneToOne: false
             referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tests: {
+        Row: {
+          category: string
+          created_at: string | null
+          description: string | null
+          difficulty: string
+          duration: number
+          id: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          description?: string | null
+          difficulty: string
+          duration: number
+          id?: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          description?: string | null
+          difficulty?: string
+          duration?: number
+          id?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      user_test_progress: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          id: string
+          score: number | null
+          started_at: string | null
+          status: string
+          test_id: string | null
+          time_spent: number | null
+          user_id: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          score?: number | null
+          started_at?: string | null
+          status: string
+          test_id?: string | null
+          time_spent?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          score?: number | null
+          started_at?: string | null
+          status?: string
+          test_id?: string | null
+          time_spent?: number | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_test_progress_test_id_fkey"
+            columns: ["test_id"]
+            isOneToOne: false
+            referencedRelation: "tests"
             referencedColumns: ["id"]
           },
         ]
