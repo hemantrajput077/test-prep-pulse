@@ -7,15 +7,38 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 const Auth = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  
+  // Redirect if user is already logged in
+  if (user) {
+    navigate("/dashboard");
+    return null;
+  }
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!email || !password) {
+      toast.error("Missing information", {
+        description: "Please fill in both email and password.",
+      });
+      return;
+    }
+    
+    if (password.length < 6) {
+      toast.error("Password too short", {
+        description: "Password must be at least 6 characters long.",
+      });
+      return;
+    }
+    
     setLoading(true);
     
     try {
@@ -31,8 +54,9 @@ const Auth = () => {
       });
       
     } catch (error: any) {
+      console.error("Signup error:", error);
       toast.error("Sign up failed", {
-        description: error.message,
+        description: error.message || "An unexpected error occurred",
       });
     } finally {
       setLoading(false);
@@ -59,6 +83,27 @@ const Auth = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleResetPassword = () => {
+    if (!email) {
+      toast.error("Email required", { 
+        description: "Please enter your email address first."
+      });
+      return;
+    }
+    
+    supabase.auth.resetPasswordForEmail(email)
+      .then(() => {
+        toast.success("Password reset email sent", {
+          description: "Check your inbox for instructions."
+        });
+      })
+      .catch((error) => {
+        toast.error("Password reset failed", {
+          description: error.message
+        });
+      });
   };
 
   return (
@@ -101,7 +146,13 @@ const Auth = () => {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <label htmlFor="password" className="text-sm font-medium">Password</label>
-                      <Button variant="link" size="sm" className="p-0 h-auto" type="button">
+                      <Button 
+                        variant="link" 
+                        size="sm" 
+                        className="p-0 h-auto" 
+                        type="button"
+                        onClick={handleResetPassword}
+                      >
                         Forgot password?
                       </Button>
                     </div>
