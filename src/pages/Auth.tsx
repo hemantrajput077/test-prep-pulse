@@ -8,6 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { InfoIcon } from "lucide-react";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -42,9 +44,15 @@ const Auth = () => {
     setLoading(true);
     
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            // Adding empty metadata to ensure raw_user_meta_data is not null
+            email: email
+          }
+        }
       });
       
       if (error) throw error;
@@ -182,6 +190,13 @@ const Auth = () => {
             <TabsContent value="signup">
               <form onSubmit={handleSignUp}>
                 <CardContent className="space-y-4 pt-4">
+                  <Alert variant="default" className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-900">
+                    <InfoIcon className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    <AlertDescription className="text-xs text-blue-700 dark:text-blue-300">
+                      After signing up, you may need to verify your email before logging in.
+                    </AlertDescription>
+                  </Alert>
+
                   <div className="space-y-2">
                     <label htmlFor="email-signup" className="text-sm font-medium">Email</label>
                     <Input 
