@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import MainLayout from "@/components/layout/MainLayout";
@@ -157,14 +158,14 @@ const Tests = () => {
     }
   };
   
-  // Fixed the infinite type recursion error by explicitly defining the filter conditions
-  const filteredTests = tests?.filter((test) => {
+  // Fix the infinite type recursion error by explicitly defining the filter conditions
+  const filteredTests = tests ? tests.filter((test: any) => {
     const matchesCategory = activeCategory === "All" || test.category === activeCategory;
     const matchesSearch = 
       test.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
       (test.description && test.description.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchesCategory && matchesSearch;
-  });
+  }) : [];
 
   return (
     <MainLayout>
@@ -244,7 +245,7 @@ const Tests = () => {
                       category={test.category}
                       questions={questionsCount}
                       duration={test.duration}
-                      difficulty={test.difficulty?.toLowerCase() as any}
+                      difficulty={(test.difficulty?.toLowerCase() || "medium") as any}
                     />
                   );
                 })}
@@ -276,7 +277,7 @@ const Tests = () => {
                     key={test.id}
                     id={test.id}
                     title={test.title}
-                    description={test.description}
+                    description={test.description || ""}
                     icon={getCategoryIcon(test.category)}
                     category={test.category}
                     questions={questionsCount}
