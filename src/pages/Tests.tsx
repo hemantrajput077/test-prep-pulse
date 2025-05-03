@@ -9,7 +9,7 @@ import TestCard from "@/components/tests/TestCard";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/sonner";
-import { generateTestCards } from "@/utils/testData";
+import { generateTestCards, TestData } from "@/utils/testData";
 
 const Tests = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -95,7 +95,8 @@ const Tests = () => {
     }
   }, [error]);
   
-  const testCategories = ["All", "Quantitative", "Reasoning", "Verbal", "Coding"];
+  // Get all unique categories from tests
+  const allCategories = ["All", ...Array.from(new Set(tests.map((test) => test.category)))];
   
   const getCategoryIcon = (category: string) => {
     switch (category) {
@@ -130,6 +131,21 @@ const Tests = () => {
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="16 18 22 12 16 6"></polyline>
             <polyline points="8 6 2 12 8 18"></polyline>
+          </svg>
+        );
+      case "Data Science":
+        return (
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+          </svg>
+        );
+      case "General Knowledge":
+        return (
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M12 16v-4"></path>
+            <path d="M12 8h.01"></path>
           </svg>
         );
       default:
@@ -182,7 +198,7 @@ const Tests = () => {
           </div>
           
           <div className="flex flex-wrap gap-2 mt-4">
-            {testCategories.map((category) => (
+            {allCategories.map((category) => (
               <Badge
                 key={category}
                 variant={activeCategory === category ? "default" : "outline"}
@@ -213,19 +229,24 @@ const Tests = () => {
               </div>
             ) : filteredTests && filteredTests.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredTests.map((test) => (
-                  <TestCard
-                    key={test.id}
-                    id={test.id}
-                    title={test.title}
-                    description={test.description}
-                    icon={getCategoryIcon(test.category)}
-                    category={test.category}
-                    questions={test.questions || 10}
-                    duration={test.duration}
-                    difficulty={test.difficulty?.toLowerCase() as any}
-                  />
-                ))}
+                {filteredTests.map((test) => {
+                  // Make sure we have a questions property or default to 10
+                  const questionsCount = 'questions' in test ? test.questions : 10;
+                  
+                  return (
+                    <TestCard
+                      key={test.id}
+                      id={test.id}
+                      title={test.title}
+                      description={test.description}
+                      icon={getCategoryIcon(test.category)}
+                      category={test.category}
+                      questions={questionsCount}
+                      duration={test.duration}
+                      difficulty={test.difficulty?.toLowerCase() as any}
+                    />
+                  );
+                })}
               </div>
             ) : (
               <div className="text-center py-12">
@@ -245,19 +266,24 @@ const Tests = () => {
           
           <TabsContent value="recommended">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {tests?.filter(test => test.difficulty === "Medium" || test.difficulty === "medium").slice(0, 3).map(test => (
-                <TestCard
-                  key={test.id}
-                  id={test.id}
-                  title={test.title}
-                  description={test.description}
-                  icon={getCategoryIcon(test.category)}
-                  category={test.category}
-                  questions={test.questions || 10}
-                  duration={test.duration}
-                  difficulty={(test.difficulty || "medium").toLowerCase() as any}
-                />
-              ))}
+              {tests?.filter(test => test.difficulty === "Medium" || test.difficulty === "medium").slice(0, 3).map(test => {
+                // Make sure we have a questions property or default to 10
+                const questionsCount = 'questions' in test ? test.questions : 10;
+                
+                return (
+                  <TestCard
+                    key={test.id}
+                    id={test.id}
+                    title={test.title}
+                    description={test.description}
+                    icon={getCategoryIcon(test.category)}
+                    category={test.category}
+                    questions={questionsCount}
+                    duration={test.duration}
+                    difficulty={(test.difficulty || "medium").toLowerCase() as any}
+                  />
+                );
+              })}
             </div>
           </TabsContent>
           
@@ -293,8 +319,9 @@ const Tests = () => {
                 <Button 
                   variant="link" 
                   onClick={() => {
-                    // Navigate to tests tab
-                    document.querySelector('[data-radix-collection-item="browse"]')?.click();
+                    document.querySelector('[data-value="browse"]')?.dispatchEvent(
+                      new Event('click', { bubbles: true })
+                    );
                   }}
                 >
                   Take your first test

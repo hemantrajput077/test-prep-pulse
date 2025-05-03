@@ -39,7 +39,7 @@ const Navbar = () => {
           </nav>
         </div>
         
-        <div className="flex flex-1 items-center justify-end space-x-2">
+        <div className="flex-1 items-center justify-end space-x-2 flex">
           <Link to="/">
             <Button className="bg-brand-500 hover:bg-brand-600">
               Home

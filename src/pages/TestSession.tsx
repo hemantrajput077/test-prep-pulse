@@ -10,28 +10,25 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { generateQuestions, generateTestCards } from "@/utils/testData";
+import { generateQuestions, generateTestCards, Question, TestData } from "@/utils/testData";
 
-interface Question {
-  id: number;
-  content: string;
-  options: { id: string; text: string }[];
-  correct_answer: string;
-}
-
-interface Test {
+interface TestFromDB {
   id: string;
   title: string;
-  duration: number;
   description: string;
   category: string;
   difficulty: string;
-  questions?: number;
+  duration: number;
+  created_at?: string;
+  updated_at?: string;
 }
+
+// Union type for handling both local TestData and Supabase data
+type Test = TestData | TestFromDB;
 
 const TestSession = () => {
   const navigate = useNavigate();
-  const { testId } = useParams();
+  const { testId } = useParams<{ testId: string }>();
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [timeLeft, setTimeLeft] = useState(0);
@@ -42,6 +39,7 @@ const TestSession = () => {
     queryKey: ['test', testId],
     queryFn: async () => {
       try {
+        // Attempt to get test from Supabase
         const { data, error } = await supabase
           .from('tests')
           .select('*')
@@ -54,11 +52,11 @@ const TestSession = () => {
           const localTests = generateTestCards();
           const localTest = localTests.find(t => t.id === testId);
           if (localTest) {
-            return localTest as Test;
+            return localTest as TestData;
           }
           throw error;
         }
-        return data as Test;
+        return data as TestFromDB;
       } catch (err) {
         console.error("Error in test fetching:", err);
         // Fall back to local test data
@@ -67,9 +65,10 @@ const TestSession = () => {
         if (!localTest) {
           throw new Error("Test not found");
         }
-        return localTest as Test;
+        return localTest as TestData;
       }
-    }
+    },
+    enabled: !!testId
   });
   
   // Fetch questions for this test

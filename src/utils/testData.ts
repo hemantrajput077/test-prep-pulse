@@ -1,5 +1,6 @@
 
-interface TestData {
+// Define the interface for our test data
+export interface TestData {
   id: string;
   title: string;
   description: string;
@@ -9,6 +10,15 @@ interface TestData {
   questions: number;
 }
 
+// Define interface for questions
+export interface Question {
+  id: number;
+  content: string;
+  options: { id: string; text: string }[];
+  correct_answer: string;
+}
+
+// Generate test cards for our application
 export const generateTestCards = (): TestData[] => {
   return [
     {
@@ -82,11 +92,48 @@ export const generateTestCards = (): TestData[] => {
       difficulty: "Hard", 
       duration: 60,
       questions: 8
+    },
+    {
+      id: "data-science-1",
+      title: "Data Analysis Fundamentals",
+      description: "Learn the basics of data analysis and statistics",
+      category: "Data Science",
+      difficulty: "Medium",
+      duration: 40,
+      questions: 15
+    },
+    {
+      id: "data-science-2",
+      title: "Machine Learning Basics",
+      description: "Introduction to machine learning algorithms and concepts",
+      category: "Data Science",
+      difficulty: "Hard",
+      duration: 50,
+      questions: 20
+    },
+    {
+      id: "general-knowledge-1",
+      title: "Current Affairs Quiz",
+      description: "Test your knowledge on recent global events and developments",
+      category: "General Knowledge",
+      difficulty: "Easy",
+      duration: 20,
+      questions: 25
+    },
+    {
+      id: "general-knowledge-2",
+      title: "History & Geography",
+      description: "Comprehensive assessment of historical events and geographical concepts",
+      category: "General Knowledge",
+      difficulty: "Medium",
+      duration: 35,
+      questions: 30
     }
   ];
 };
 
-export const generateQuestions = (testId: string) => {
+// Generate sample questions for a test
+export const generateQuestions = (testId: string): Question[] => {
   // Generate 10 sample questions for any test
   const questions = [];
   
