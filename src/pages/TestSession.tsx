@@ -10,7 +10,6 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
 
 interface Question {
   id: number;
@@ -29,7 +28,6 @@ interface Test {
 const TestSession = () => {
   const navigate = useNavigate();
   const { testId } = useParams();
-  const { user } = useAuth();
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [timeLeft, setTimeLeft] = useState(0);
@@ -72,12 +70,16 @@ const TestSession = () => {
   // Create test progress record when starting
   const createTestProgressMutation = useMutation({
     mutationFn: async () => {
-      if (!user || !testId) return null;
+      if (!testId) return null;
+      
+      // Use a guest ID or anonymous tracking for non-authenticated users
+      const guestId = localStorage.getItem('guestId') || crypto.randomUUID();
+      localStorage.setItem('guestId', guestId);
       
       const { data, error } = await supabase
         .from('user_test_progress')
         .insert({
-          user_id: user.id,
+          guest_id: guestId,
           test_id: testId,
           status: 'in_progress'
         })

@@ -2,11 +2,8 @@
 import { Link } from "react-router-dom";
 import MainLayout from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/hooks/useAuth";
 
 const Index = () => {
-  const { user } = useAuth();
-  
   return (
     <MainLayout>
       <div className="container px-4">
@@ -22,20 +19,12 @@ const Index = () => {
                 </p>
               </div>
               <div className="space-x-4">
-                {user ? (
-                  <Link to="/dashboard">
-                    <Button className="bg-brand-500 hover:bg-brand-600">Go to Dashboard</Button>
-                  </Link>
-                ) : (
-                  <>
-                    <Link to="/auth">
-                      <Button className="bg-brand-500 hover:bg-brand-600">Get Started</Button>
-                    </Link>
-                    <Link to="/auth">
-                      <Button variant="outline">Sign In</Button>
-                    </Link>
-                  </>
-                )}
+                <Link to="/dashboard">
+                  <Button className="bg-brand-500 hover:bg-brand-600">Go to Dashboard</Button>
+                </Link>
+                <Link to="/tests">
+                  <Button variant="outline">Explore Tests</Button>
+                </Link>
               </div>
             </div>
           </div>
