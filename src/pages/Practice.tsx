@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { toast } from "@/components/ui/sonner";
 
 const Practice = () => {
   const categories = [
@@ -56,6 +57,12 @@ const Practice = () => {
   ];
 
   const [activeCategory, setActiveCategory] = useState(categories[0]);
+  
+  const handlePracticeNow = (topicName: string) => {
+    toast.success(`Starting practice for ${topicName}`, {
+      description: "This feature will be available soon!"
+    });
+  };
 
   return (
     <MainLayout>
@@ -99,7 +106,12 @@ const Practice = () => {
                         <Progress value={(topic.completed / topic.count) * 100} />
                       </CardContent>
                       <CardFooter className="p-4 pt-0 flex justify-end">
-                        <Button size="sm">Practice Now</Button>
+                        <Button 
+                          size="sm"
+                          onClick={() => handlePracticeNow(topic.name)}
+                        >
+                          Practice Now
+                        </Button>
                       </CardFooter>
                     </Card>
                   ))}
@@ -161,7 +173,13 @@ const Practice = () => {
                           </div>
                           <Badge variant="secondary" className="bg-amber-100 text-amber-800">Medium</Badge>
                         </div>
-                        <Button size="sm" className="mt-2 w-full">Start Practice</Button>
+                        <Button 
+                          size="sm" 
+                          className="mt-2 w-full"
+                          onClick={() => handlePracticeNow("Probability Problems")}
+                        >
+                          Start Practice
+                        </Button>
                       </div>
                       
                       <div className="rounded-md border bg-muted/30 p-3">
@@ -172,7 +190,13 @@ const Practice = () => {
                           </div>
                           <Badge variant="secondary" className="bg-emerald-100 text-emerald-800">Easy</Badge>
                         </div>
-                        <Button size="sm" className="mt-2 w-full">Start Practice</Button>
+                        <Button 
+                          size="sm" 
+                          className="mt-2 w-full"
+                          onClick={() => handlePracticeNow("Reading Comprehension")}
+                        >
+                          Start Practice
+                        </Button>
                       </div>
                       
                       <div className="rounded-md border bg-muted/30 p-3">
@@ -183,7 +207,13 @@ const Practice = () => {
                           </div>
                           <Badge variant="secondary" className="bg-rose-100 text-rose-800">Hard</Badge>
                         </div>
-                        <Button size="sm" className="mt-2 w-full">Start Practice</Button>
+                        <Button 
+                          size="sm" 
+                          className="mt-2 w-full"
+                          onClick={() => handlePracticeNow("Dynamic Programming")}
+                        >
+                          Start Practice
+                        </Button>
                       </div>
                     </div>
                   </CardContent>

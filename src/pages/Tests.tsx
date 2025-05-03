@@ -9,65 +9,88 @@ import TestCard from "@/components/tests/TestCard";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/sonner";
-
-interface Test {
-  id: string;
-  title: string;
-  description: string;
-  category: string;
-  difficulty: "Easy" | "Medium" | "Hard";
-  duration: number;
-}
-
-const difficultyMap = {
-  "Easy": "easy" as const,
-  "Medium": "medium" as const,
-  "Hard": "hard" as const,
-};
+import { generateTestCards } from "@/utils/testData";
 
 const Tests = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
   
-  const { data: tests, isLoading, error } = useQuery({
+  // Use our local test data when Supabase doesn't return results
+  const { data: testsFromDb, isLoading, error } = useQuery({
     queryKey: ['tests'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('tests')
-        .select('*');
-      
-      if (error) throw error;
-      return data as Test[];
+      try {
+        const { data, error } = await supabase
+          .from('tests')
+          .select('*');
+        
+        if (error) throw error;
+        return data;
+      } catch (err) {
+        console.error("Error fetching tests:", err);
+        return null;
+      }
     }
   });
   
-  const { data: testHistory } = useQuery({
-    queryKey: ['testHistory'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('user_test_progress')
-        .select(`
-          id,
-          test_id,
-          status,
-          score,
-          created_at,
-          tests(title)
-        `)
-        .eq('status', 'completed')
-        .order('created_at', { ascending: false })
-        .limit(3);
-      
-      if (error) throw error;
-      return data;
+  // Fall back to local test data if database query fails
+  const tests = testsFromDb?.length > 0 ? testsFromDb : generateTestCards();
+  
+  // Use local storage to track test history for now
+  const [testHistory, setTestHistory] = useState<any[]>([]);
+  
+  useEffect(() => {
+    const storedHistory = localStorage.getItem('testHistory');
+    if (storedHistory) {
+      try {
+        setTestHistory(JSON.parse(storedHistory));
+      } catch (e) {
+        console.error("Failed to parse test history:", e);
+        setTestHistory([]);
+      }
     }
-  });
+    
+    // Also try to fetch from Supabase if possible
+    const fetchTestHistory = async () => {
+      try {
+        // Get guest ID if it exists
+        const guestId = localStorage.getItem('guestId');
+        
+        if (guestId) {
+          const { data, error } = await supabase
+            .from('user_test_progress')
+            .select(`
+              id,
+              test_id,
+              status,
+              score,
+              created_at,
+              tests(title)
+            `)
+            .eq('guest_id', guestId)
+            .eq('status', 'completed')
+            .order('created_at', { ascending: false })
+            .limit(3);
+          
+          if (!error && data && data.length > 0) {
+            setTestHistory(data);
+            // Also save to localStorage as backup
+            localStorage.setItem('testHistory', JSON.stringify(data));
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching test history:", err);
+      }
+    };
+    
+    fetchTestHistory();
+  }, []);
 
   // Error handling
   useEffect(() => {
     if (error) {
       toast.error("Failed to load tests", {
-        description: "Please try again later."
+        description: "Using locally generated test data instead."
       });
     }
   }, [error]);
@@ -198,9 +221,9 @@ const Tests = () => {
                     description={test.description}
                     icon={getCategoryIcon(test.category)}
                     category={test.category}
-                    questions={10} // We can enhance this later
+                    questions={test.questions || 10}
                     duration={test.duration}
-                    difficulty={difficultyMap[test.difficulty]}
+                    difficulty={test.difficulty?.toLowerCase() as any}
                   />
                 ))}
               </div>
@@ -222,7 +245,7 @@ const Tests = () => {
           
           <TabsContent value="recommended">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {tests?.slice(0, 2).map(test => (
+              {tests?.filter(test => test.difficulty === "Medium" || test.difficulty === "medium").slice(0, 3).map(test => (
                 <TestCard
                   key={test.id}
                   id={test.id}
@@ -230,9 +253,9 @@ const Tests = () => {
                   description={test.description}
                   icon={getCategoryIcon(test.category)}
                   category={test.category}
-                  questions={10}
+                  questions={test.questions || 10}
                   duration={test.duration}
-                  difficulty={difficultyMap[test.difficulty]}
+                  difficulty={(test.difficulty || "medium").toLowerCase() as any}
                 />
               ))}
             </div>
@@ -244,7 +267,7 @@ const Tests = () => {
                 {testHistory.map((item: any) => (
                   <div key={item.id} className="p-4 flex items-center justify-between">
                     <div>
-                      <h3 className="font-medium">{item.tests?.title}</h3>
+                      <h3 className="font-medium">{item.tests?.title || "Test"}</h3>
                       <p className="text-sm text-muted-foreground">
                         Completed on {new Date(item.created_at).toLocaleDateString()}
                       </p>
@@ -270,7 +293,8 @@ const Tests = () => {
                 <Button 
                   variant="link" 
                   onClick={() => {
-                    // Navigate to tests
+                    // Navigate to tests tab
+                    document.querySelector('[data-radix-collection-item="browse"]')?.click();
                   }}
                 >
                   Take your first test

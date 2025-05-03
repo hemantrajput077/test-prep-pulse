@@ -10,6 +10,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { generateQuestions, generateTestCards } from "@/utils/testData";
 
 interface Question {
   id: number;
@@ -23,6 +24,9 @@ interface Test {
   title: string;
   duration: number;
   description: string;
+  category: string;
+  difficulty: string;
+  questions?: number;
 }
 
 const TestSession = () => {
@@ -37,14 +41,34 @@ const TestSession = () => {
   const { data: test, isLoading: testLoading } = useQuery({
     queryKey: ['test', testId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('tests')
-        .select('*')
-        .eq('id', testId)
-        .single();
-      
-      if (error) throw error;
-      return data as Test;
+      try {
+        const { data, error } = await supabase
+          .from('tests')
+          .select('*')
+          .eq('id', testId)
+          .single();
+        
+        if (error) {
+          console.log("Error fetching test from Supabase:", error);
+          // Fall back to local test data if database query fails
+          const localTests = generateTestCards();
+          const localTest = localTests.find(t => t.id === testId);
+          if (localTest) {
+            return localTest as Test;
+          }
+          throw error;
+        }
+        return data as Test;
+      } catch (err) {
+        console.error("Error in test fetching:", err);
+        // Fall back to local test data
+        const localTests = generateTestCards();
+        const localTest = localTests.find(t => t.id === testId);
+        if (!localTest) {
+          throw new Error("Test not found");
+        }
+        return localTest as Test;
+      }
     }
   });
   
@@ -52,17 +76,27 @@ const TestSession = () => {
   const { data: questions, isLoading: questionsLoading } = useQuery({
     queryKey: ['questions', testId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('questions')
-        .select('*')
-        .eq('test_id', testId);
-      
-      if (error) throw error;
-      
-      return data.map(q => ({
-        ...q,
-        options: typeof q.options === 'string' ? JSON.parse(q.options) : q.options
-      })) as Question[];
+      try {
+        const { data, error } = await supabase
+          .from('questions')
+          .select('*')
+          .eq('test_id', testId);
+        
+        if (error || !data || data.length === 0) {
+          console.log("Error or no data from Supabase questions:", error);
+          // Use generated questions as fallback
+          return generateQuestions(testId || '');
+        }
+        
+        return data.map(q => ({
+          ...q,
+          options: typeof q.options === 'string' ? JSON.parse(q.options) : q.options
+        })) as Question[];
+      } catch (err) {
+        console.error("Error fetching questions:", err);
+        // Fall back to generated questions
+        return generateQuestions(testId || '');
+      }
     },
     enabled: !!testId
   });
@@ -72,22 +106,30 @@ const TestSession = () => {
     mutationFn: async () => {
       if (!testId) return null;
       
-      // Use a guest ID or anonymous tracking for non-authenticated users
+      // Use a guest ID for anonymous tracking
       const guestId = localStorage.getItem('guestId') || crypto.randomUUID();
       localStorage.setItem('guestId', guestId);
       
-      const { data, error } = await supabase
-        .from('user_test_progress')
-        .insert({
-          guest_id: guestId,
-          test_id: testId,
-          status: 'in_progress'
-        })
-        .select('id')
-        .single();
-      
-      if (error) throw error;
-      return data;
+      try {
+        const { data, error } = await supabase
+          .from('user_test_progress')
+          .insert({
+            guest_id: guestId,
+            test_id: testId,
+            status: 'in_progress'
+          })
+          .select('id')
+          .single();
+        
+        if (error) {
+          console.error("Error creating test progress:", error);
+          return { id: `local-${Date.now()}` };
+        }
+        return data;
+      } catch (err) {
+        console.error("Error in test progress creation:", err);
+        return { id: `local-${Date.now()}` };
+      }
     },
     onSuccess: (data) => {
       if (data) {
@@ -106,17 +148,43 @@ const TestSession = () => {
     mutationFn: async (score: number) => {
       if (!testProgressId) return;
       
-      const { error } = await supabase
-        .from('user_test_progress')
-        .update({
-          status: 'completed',
-          score,
-          completed_at: new Date().toISOString(),
-          time_spent: test!.duration * 60 - timeLeft
-        })
-        .eq('id', testProgressId);
+      const isLocalId = testProgressId.startsWith('local-');
       
-      if (error) throw error;
+      if (isLocalId) {
+        // Store progress in localStorage for offline/demo mode
+        const historyItem = {
+          id: testProgressId,
+          test_id: testId,
+          score,
+          created_at: new Date().toISOString(),
+          status: 'completed',
+          tests: { title: test?.title || "Test" }
+        };
+        
+        const existingHistory = JSON.parse(localStorage.getItem('testHistory') || '[]');
+        existingHistory.unshift(historyItem);
+        localStorage.setItem('testHistory', JSON.stringify(existingHistory.slice(0, 10)));
+        return;
+      }
+      
+      try {
+        const { error } = await supabase
+          .from('user_test_progress')
+          .update({
+            status: 'completed',
+            score,
+            completed_at: new Date().toISOString(),
+            time_spent: test!.duration * 60 - timeLeft
+          })
+          .eq('id', testProgressId);
+        
+        if (error) {
+          console.error("Error updating test progress:", error);
+          throw error;
+        }
+      } catch (err) {
+        console.error("Error in complete test mutation:", err);
+      }
     },
     onError: () => {
       toast.error("Failed to save test results", {
