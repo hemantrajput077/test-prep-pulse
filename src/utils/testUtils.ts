@@ -92,13 +92,18 @@ export const fetchTestWithQuestions = async (testId: string): Promise<TestDetail
 export const startTest = async (guestId: string, testId: string): Promise<string | null> => {
   try {
     // Check if there's an existing in-progress test
-    const { data: existingProgress } = await supabase
+    const { data: existingProgress, error: queryError } = await supabase
       .from('user_test_progress')
       .select('id')
       .eq('guest_id', guestId)
       .eq('test_id', testId)
       .eq('status', 'in_progress')
       .maybeSingle();
+    
+    if (queryError) {
+      console.error("Error checking existing progress:", queryError);
+      return null;
+    }
     
     // If there's an existing in-progress test, return its ID
     if (existingProgress?.id) {
@@ -195,6 +200,10 @@ export const getTestStatistics = async (guestId: string) => {
       .eq('guest_id', guestId)
       .eq('status', 'completed');
     
+    if (totalError) {
+      console.error("Error fetching total tests:", totalError);
+    }
+    
     // Get average score
     const { data: scores, error: scoresError } = await supabase
       .from('user_test_progress')
@@ -203,11 +212,19 @@ export const getTestStatistics = async (guestId: string) => {
       .eq('status', 'completed')
       .not('score', 'is', null);
     
+    if (scoresError) {
+      console.error("Error fetching scores:", scoresError);
+    }
+    
     // Get total questions solved
     const { count: questionsSolved, error: questionsError } = await supabase
       .from('scores')
       .select('*', { count: 'exact', head: true })
       .eq('guest_id', guestId);
+    
+    if (questionsError) {
+      console.error("Error fetching questions solved:", questionsError);
+    }
     
     // Calculate practice hours
     const { data: timeSpent, error: timeSpentError } = await supabase
@@ -216,6 +233,10 @@ export const getTestStatistics = async (guestId: string) => {
       .eq('guest_id', guestId)
       .eq('status', 'completed')
       .not('time_spent', 'is', null);
+    
+    if (timeSpentError) {
+      console.error("Error fetching time spent:", timeSpentError);
+    }
     
     // Calculate average score
     const avgScore = scores && scores.length > 0
