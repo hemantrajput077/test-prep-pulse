@@ -10,12 +10,38 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/sonner";
 import { generateTestCards, TestData } from "@/utils/testData";
+import { useGuestId } from "@/components/layout/GuestIdProvider";
+
+// Define interface for tests from database
+interface TestFromDB {
+  id: string;
+  title: string;
+  description: string | null;
+  category: string;
+  difficulty: string;
+  duration: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// Define interface for test progress
+interface TestProgress {
+  id: string;
+  test_id: string;
+  status: string;
+  score: number | null;
+  created_at: string;
+  tests?: {
+    title: string;
+  };
+}
 
 const Tests = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
+  const { guestId } = useGuestId();
   
-  // Use our local test data when Supabase doesn't return results
+  // Use our Supabase database to fetch tests
   const { data: testsFromDb, isLoading, error } = useQuery({
     queryKey: ['tests'],
     queryFn: async () => {
@@ -25,7 +51,7 @@ const Tests = () => {
           .select('*');
         
         if (error) throw error;
-        return data;
+        return data as TestFromDB[];
       } catch (err) {
         console.error("Error fetching tests:", err);
         return null;
@@ -36,55 +62,56 @@ const Tests = () => {
   // Fall back to local test data if database query fails
   const tests = testsFromDb?.length > 0 ? testsFromDb : generateTestCards();
   
-  // Use local storage to track test history for now
-  const [testHistory, setTestHistory] = useState<any[]>([]);
+  // Use Supabase to track test history using our guest ID
+  const [testHistory, setTestHistory] = useState<TestProgress[]>([]);
   
   useEffect(() => {
-    const storedHistory = localStorage.getItem('testHistory');
-    if (storedHistory) {
-      try {
-        setTestHistory(JSON.parse(storedHistory));
-      } catch (e) {
-        console.error("Failed to parse test history:", e);
-        setTestHistory([]);
-      }
-    }
+    if (!guestId) return;
     
-    // Also try to fetch from Supabase if possible
+    // Fetch the test history for the current guest ID
     const fetchTestHistory = async () => {
       try {
-        // Get guest ID if it exists
-        const guestId = localStorage.getItem('guestId');
+        const { data, error } = await supabase
+          .from('user_test_progress')
+          .select(`
+            id,
+            test_id,
+            status,
+            score,
+            created_at,
+            tests (
+              title
+            )
+          `)
+          .eq('guest_id', guestId)
+          .eq('status', 'completed')
+          .order('created_at', { ascending: false })
+          .limit(3);
         
-        if (guestId) {
-          const { data, error } = await supabase
-            .from('user_test_progress')
-            .select(`
-              id,
-              test_id,
-              status,
-              score,
-              created_at,
-              tests(title)
-            `)
-            .eq('guest_id', guestId)
-            .eq('status', 'completed')
-            .order('created_at', { ascending: false })
-            .limit(3);
-          
-          if (!error && data && data.length > 0) {
-            setTestHistory(data);
-            // Also save to localStorage as backup
-            localStorage.setItem('testHistory', JSON.stringify(data));
+        if (!error && data && data.length > 0) {
+          setTestHistory(data);
+          // Also save to localStorage as backup
+          localStorage.setItem('testHistory', JSON.stringify(data));
+        } else if (error) {
+          console.error("Error fetching test history:", error);
+          // Try to fall back to localStorage
+          const storedHistory = localStorage.getItem('testHistory');
+          if (storedHistory) {
+            try {
+              setTestHistory(JSON.parse(storedHistory));
+            } catch (e) {
+              console.error("Failed to parse test history:", e);
+              setTestHistory([]);
+            }
           }
         }
       } catch (err) {
-        console.error("Error fetching test history:", err);
+        console.error("Error in test history fetch:", err);
       }
     };
     
     fetchTestHistory();
-  }, []);
+  }, [guestId]);
 
   // Error handling
   useEffect(() => {
@@ -96,7 +123,7 @@ const Tests = () => {
   }, [error]);
   
   // Get all unique categories from tests
-  const allCategories = ["All", ...Array.from(new Set(tests.map((test) => test.category)))];
+  const allCategories = ["All", ...Array.from(new Set((tests as any[] || []).map((test) => test.category)))];
   
   const getCategoryIcon = (category: string) => {
     switch (category) {
@@ -158,8 +185,8 @@ const Tests = () => {
     }
   };
   
-  // Fix the infinite type recursion error by explicitly defining the filter conditions
-  const filteredTests = tests ? tests.filter((test: any) => {
+  // Fixed the infinite type recursion error by using explicit typing
+  const filteredTests = tests ? (tests as (TestFromDB | TestData)[]).filter((test) => {
     const matchesCategory = activeCategory === "All" || test.category === activeCategory;
     const matchesSearch = 
       test.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -268,7 +295,7 @@ const Tests = () => {
           
           <TabsContent value="recommended">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {tests?.filter(test => test.difficulty === "Medium" || test.difficulty === "medium").slice(0, 3).map(test => {
+              {(tests as any[])?.filter(test => test.difficulty === "Medium" || test.difficulty === "medium").slice(0, 3).map(test => {
                 // Make sure we have a questions property or default to 10
                 const questionsCount = 'questions' in test ? test.questions : 10;
                 
@@ -292,7 +319,7 @@ const Tests = () => {
           <TabsContent value="history">
             {testHistory && testHistory.length > 0 ? (
               <div className="rounded-lg border bg-card shadow-sm divide-y">
-                {testHistory.map((item: any) => (
+                {testHistory.map((item: TestProgress) => (
                   <div key={item.id} className="p-4 flex items-center justify-between">
                     <div>
                       <h3 className="font-medium">{item.tests?.title || "Test"}</h3>
@@ -304,10 +331,10 @@ const Tests = () => {
                       <div className="text-right">
                         <p className="text-sm font-medium">Score</p>
                         <p className={`text-lg font-semibold ${
-                          item.score >= 80 ? "text-emerald-500" : 
-                          item.score >= 60 ? "text-amber-500" : "text-rose-500"
+                          item.score && item.score >= 80 ? "text-emerald-500" : 
+                          item.score && item.score >= 60 ? "text-amber-500" : "text-rose-500"
                         }`}>
-                          {item.score}%
+                          {item.score ? `${item.score}%` : "N/A"}
                         </p>
                       </div>
                       <Button size="sm" variant="outline">View Details</Button>

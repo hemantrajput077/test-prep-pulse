@@ -3,6 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useGuestId } from "@/components/layout/GuestIdProvider";
+import { startTest } from "@/utils/testUtils";
+import { toast } from "@/components/ui/sonner";
 
 interface TestCardProps {
   id?: string;
@@ -26,6 +29,7 @@ const TestCard = ({
   difficulty,
 }: TestCardProps) => {
   const navigate = useNavigate();
+  const { guestId } = useGuestId();
   
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
@@ -40,8 +44,33 @@ const TestCard = ({
     }
   };
   
-  const handleStartTest = () => {
-    navigate(`/test-session/${id}`);
+  const handleStartTest = async () => {
+    // If we don't have a guestId yet, navigate directly to the test page
+    if (!guestId) {
+      navigate(`/test-session/${id}`);
+      return;
+    }
+
+    // Start the test in the database
+    try {
+      const progressId = await startTest(guestId, id);
+      
+      if (progressId) {
+        // Navigate to the test session with progress ID
+        navigate(`/test-session/${id}?progress=${progressId}`);
+      } else {
+        // If there was an error, still navigate but without progress tracking
+        toast.error("Unable to track your progress", {
+          description: "Your results won't be saved, but you can still take the test."
+        });
+        navigate(`/test-session/${id}`);
+      }
+    } catch (error) {
+      console.error("Error starting test:", error);
+      toast.error("Error starting the test", {
+        description: "Please try again later."
+      });
+    }
   };
 
   return (

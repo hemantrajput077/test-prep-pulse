@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -7,11 +7,74 @@ import StatsCard from "@/components/ui/custom/StatsCard";
 import { Progress } from "@/components/ui/progress";
 import PerformanceChart from "@/components/dashboard/PerformanceChart";
 import TopicAnalysis from "@/components/dashboard/TopicAnalysis";
+import { useGuestId } from "@/components/layout/GuestIdProvider";
+import { getTestStatistics } from "@/utils/testUtils";
+import { supabase } from "@/integrations/supabase/client";
 
 const DashboardOverview = () => {
   const [activeTab, setActiveTab] = useState("overview");
+  const { guestId } = useGuestId();
+  const [stats, setStats] = useState({
+    totalTests: "0",
+    avgScore: "0%",
+    questionsSolved: "0",
+    practiceHours: "0"
+  });
+  const [recentTests, setRecentTests] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const recentTests = [
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      if (!guestId) return;
+
+      setLoading(true);
+      try {
+        // Get statistics
+        const statistics = await getTestStatistics(guestId);
+        setStats({
+          totalTests: statistics.totalTests.toString(),
+          avgScore: `${statistics.avgScore}%`,
+          questionsSolved: statistics.questionsSolved.toString(),
+          practiceHours: statistics.practiceHours.toString()
+        });
+
+        // Get recent tests
+        const { data: recentTestData } = await supabase
+          .from('user_test_progress')
+          .select(`
+            id,
+            score,
+            completed_at,
+            tests (
+              id,
+              title
+            )
+          `)
+          .eq('guest_id', guestId)
+          .eq('status', 'completed')
+          .order('completed_at', { ascending: false })
+          .limit(3);
+
+        if (recentTestData && recentTestData.length > 0) {
+          setRecentTests(recentTestData.map(test => ({
+            id: test.id,
+            name: test.tests?.title || "Test",
+            score: test.score || 0,
+            date: test.completed_at || new Date().toISOString()
+          })));
+        }
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, [guestId]);
+
+  // Fallback data if no real data is available
+  const fallbackRecentTests = [
     { id: 1, name: "Quantitative Aptitude - Basic", score: 85, date: "2023-04-28" },
     { id: 2, name: "Logical Reasoning - Medium", score: 72, date: "2023-04-25" },
     { id: 3, name: "Verbal Ability - Advanced", score: 68, date: "2023-04-20" },
@@ -37,31 +100,33 @@ const DashboardOverview = () => {
     { id: 3, name: "Binary Search Problems", difficulty: "Medium" },
   ];
 
+  const testsToDisplay = recentTests.length > 0 ? recentTests : fallbackRecentTests;
+
   return (
     <>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard 
           title="Total Tests Taken"
-          value="42"
+          value={stats.totalTests}
           trend="up"
           trendValue="12%"
         />
         
         <StatsCard 
           title="Average Score"
-          value="76%"
+          value={stats.avgScore}
           trend="up"
           trendValue="5%"
         />
         
         <StatsCard 
           title="Questions Solved"
-          value="358"
+          value={stats.questionsSolved}
         />
         
         <StatsCard 
           title="Practice Hours"
-          value="24.5"
+          value={stats.practiceHours}
           subtitle="Last 30 days"
         />
       </div>
@@ -80,31 +145,37 @@ const DashboardOverview = () => {
                 <CardTitle>Recent Tests</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {recentTests.map((test) => (
-                    <div key={test.id} className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">{test.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Taken on {new Date(test.date).toLocaleDateString()}
-                        </p>
+                {loading ? (
+                  <div className="flex justify-center py-6">
+                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {testsToDisplay.map((test) => (
+                      <div key={test.id} className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">{test.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Taken on {new Date(test.date).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div className="flex items-center">
+                          <span 
+                            className={`text-sm font-semibold ${
+                              test.score >= 80 ? "text-emerald-500" : 
+                              test.score >= 60 ? "text-amber-500" : "text-rose-500"
+                            }`}
+                          >
+                            {test.score}%
+                          </span>
+                          <Button variant="ghost" size="sm" className="ml-2">
+                            View
+                          </Button>
+                        </div>
                       </div>
-                      <div className="flex items-center">
-                        <span 
-                          className={`text-sm font-semibold ${
-                            test.score >= 80 ? "text-emerald-500" : 
-                            test.score >= 60 ? "text-amber-500" : "text-rose-500"
-                          }`}
-                        >
-                          {test.score}%
-                        </span>
-                        <Button variant="ghost" size="sm" className="ml-2">
-                          View
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
                 <Button variant="outline" size="sm" className="w-full mt-4">
                   View All Tests
                 </Button>
