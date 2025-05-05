@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 
 export interface Question {
@@ -8,6 +9,7 @@ export interface Question {
     text: string;
   }[];
   correct_answer: string;
+  test_id?: string;
 }
 
 export interface TestDetails {
@@ -55,7 +57,7 @@ export const fetchTestWithQuestions = async (testId: string): Promise<TestDetail
     }
     
     // Then fetch the questions for this test
-    const { data: questions, error: questionsError } = await supabase
+    const { data: questionsData, error: questionsError } = await supabase
       .from('questions')
       .select('*')
       .eq('test_id', testId);
@@ -65,9 +67,20 @@ export const fetchTestWithQuestions = async (testId: string): Promise<TestDetail
       return null;
     }
     
+    // Parse the options from JSON to object
+    const questions = questionsData?.map(question => ({
+      id: question.id,
+      content: question.content,
+      options: typeof question.options === 'string' 
+        ? JSON.parse(question.options) 
+        : question.options,
+      correct_answer: question.correct_answer,
+      test_id: question.test_id
+    })) || [];
+    
     return {
       ...testData,
-      questions: questions || []
+      questions
     };
   } catch (err) {
     console.error("Error in fetchTestWithQuestions:", err);
@@ -147,11 +160,18 @@ export const completeTest = async (
 };
 
 // Save a question response
-export const saveQuestionScore = async (score: QuestionScore): Promise<boolean> => {
+export const saveQuestionScore = async (scoreData: QuestionScore): Promise<boolean> => {
   try {
     const { error } = await supabase
       .from('scores')
-      .insert(score);
+      .insert({
+        guest_id: scoreData.guest_id,
+        test_id: scoreData.test_id,
+        question_id: scoreData.question_id,
+        is_correct: scoreData.is_correct,
+        score: scoreData.is_correct ? 1 : 0, // Adding score field
+        time_taken: scoreData.time_taken || null
+      });
     
     if (error) {
       console.error("Error saving question score:", error);
@@ -169,9 +189,9 @@ export const saveQuestionScore = async (score: QuestionScore): Promise<boolean> 
 export const getTestStatistics = async (guestId: string) => {
   try {
     // Get total tests taken
-    const { data: totalTests, error: totalError } = await supabase
+    const { count: totalTests, error: totalError } = await supabase
       .from('user_test_progress')
-      .select('count', { count: 'exact' })
+      .select('*', { count: 'exact', head: true })
       .eq('guest_id', guestId)
       .eq('status', 'completed');
     
@@ -184,9 +204,9 @@ export const getTestStatistics = async (guestId: string) => {
       .not('score', 'is', null);
     
     // Get total questions solved
-    const { data: questions, error: questionsError } = await supabase
+    const { count: questionsSolved, error: questionsError } = await supabase
       .from('scores')
-      .select('count', { count: 'exact' })
+      .select('*', { count: 'exact', head: true })
       .eq('guest_id', guestId);
     
     // Calculate practice hours
@@ -208,18 +228,18 @@ export const getTestStatistics = async (guestId: string) => {
       : 0;
     
     return {
-      totalTests: totalTests?.count || 0,
+      totalTests: totalTests || 0,
       avgScore: avgScore.toFixed(1),
-      questionsSolved: questions?.count || 0,
+      questionsSolved: questionsSolved || 0,
       practiceHours: totalHours.toFixed(1)
     };
   } catch (err) {
     console.error("Error fetching test statistics:", err);
     return {
       totalTests: 0,
-      avgScore: 0,
+      avgScore: '0.0',
       questionsSolved: 0,
-      practiceHours: 0
+      practiceHours: '0.0'
     };
   }
 };
