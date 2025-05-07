@@ -193,16 +193,18 @@ export const saveQuestionScore = async (scoreData: QuestionScore): Promise<boole
 // Get test progress statistics for a guest
 export const getTestStatistics = async (guestId: string) => {
   try {
-    // Get total tests taken
-    const { count: totalTests, error: totalError } = await supabase
+    // Get total tests taken - Fix: Changed from count to countQuery approach
+    const { data: testsData, error: totalError } = await supabase
       .from('user_test_progress')
-      .select('*', { count: 'exact', head: true })
+      .select('id')
       .eq('guest_id', guestId)
       .eq('status', 'completed');
     
     if (totalError) {
       console.error("Error fetching total tests:", totalError);
     }
+    
+    const totalTests = testsData?.length || 0;
     
     // Get average score
     const { data: scores, error: scoresError } = await supabase
@@ -216,15 +218,17 @@ export const getTestStatistics = async (guestId: string) => {
       console.error("Error fetching scores:", scoresError);
     }
     
-    // Get total questions solved
-    const { count: questionsSolved, error: questionsError } = await supabase
+    // Get total questions solved - Fix: Changed from count to countQuery approach
+    const { data: questionsData, error: questionsError } = await supabase
       .from('scores')
-      .select('*', { count: 'exact', head: true })
+      .select('id')
       .eq('guest_id', guestId);
     
     if (questionsError) {
       console.error("Error fetching questions solved:", questionsError);
     }
+    
+    const questionsSolved = questionsData?.length || 0;
     
     // Calculate practice hours
     const { data: timeSpent, error: timeSpentError } = await supabase
@@ -249,9 +253,9 @@ export const getTestStatistics = async (guestId: string) => {
       : 0;
     
     return {
-      totalTests: totalTests || 0,
+      totalTests,
       avgScore: avgScore.toFixed(1),
-      questionsSolved: questionsSolved || 0,
+      questionsSolved,
       practiceHours: totalHours.toFixed(1)
     };
   } catch (err) {
