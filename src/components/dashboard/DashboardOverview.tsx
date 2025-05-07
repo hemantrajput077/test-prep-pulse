@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import PerformanceChart from "@/components/dashboard/PerformanceChart";
 import TopicAnalysis from "@/components/dashboard/TopicAnalysis";
 import { useGuestId } from "@/components/layout/GuestIdProvider";
-import { getTestStatistics } from "@/utils/testUtils";
+import { getTestStatistics } from "@/utils/test/statistics";
 import { supabase } from "@/integrations/supabase/client";
 
 const DashboardOverview = () => {
@@ -50,7 +49,7 @@ const DashboardOverview = () => {
               title
             )
           `)
-          .eq('guest_id', guestId)
+          .eq('user_id', guestId)
           .eq('status', 'completed')
           .order('completed_at', { ascending: false })
           .limit(3);

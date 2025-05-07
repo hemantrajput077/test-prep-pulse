@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -11,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { generateQuestions, generateTestCards, Question, TestData } from "@/utils/testData";
+import { startTest, completeTest } from "@/utils/test/testProgress";
 
 interface TestFromDB {
   id: string;
@@ -110,21 +110,12 @@ const TestSession = () => {
       localStorage.setItem('guestId', guestId);
       
       try {
-        const { data, error } = await supabase
-          .from('user_test_progress')
-          .insert({
-            guest_id: guestId,
-            test_id: testId,
-            status: 'in_progress'
-          })
-          .select('id')
-          .single();
-        
-        if (error) {
-          console.error("Error creating test progress:", error);
+        // Use the refactored startTest function
+        const progressId = await startTest(guestId, testId);
+        if (!progressId) {
           return { id: `local-${Date.now()}` };
         }
-        return data;
+        return { id: progressId };
       } catch (err) {
         console.error("Error in test progress creation:", err);
         return { id: `local-${Date.now()}` };
@@ -148,6 +139,7 @@ const TestSession = () => {
       if (!testProgressId) return;
       
       const isLocalId = testProgressId.startsWith('local-');
+      const guestId = localStorage.getItem('guestId') || '';
       
       if (isLocalId) {
         // Store progress in localStorage for offline/demo mode
@@ -167,20 +159,9 @@ const TestSession = () => {
       }
       
       try {
-        const { error } = await supabase
-          .from('user_test_progress')
-          .update({
-            status: 'completed',
-            score,
-            completed_at: new Date().toISOString(),
-            time_spent: test!.duration * 60 - timeLeft
-          })
-          .eq('id', testProgressId);
-        
-        if (error) {
-          console.error("Error updating test progress:", error);
-          throw error;
-        }
+        // Use the refactored completeTest function
+        const timeSpentMinutes = test ? test.duration * 60 - timeLeft : 0;
+        await completeTest(testProgressId, guestId, score, timeSpentMinutes);
       } catch (err) {
         console.error("Error in complete test mutation:", err);
       }

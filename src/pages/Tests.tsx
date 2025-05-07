@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import MainLayout from "@/components/layout/MainLayout";
@@ -11,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/sonner";
 import { generateTestCards, TestData } from "@/utils/testData";
 import { useGuestId } from "@/components/layout/GuestIdProvider";
+import { TestDetails } from "@/utils/test/types";
 
 // Define interface for tests from database
 interface TestFromDB {
