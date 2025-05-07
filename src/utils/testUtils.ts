@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 
 export interface Question {
@@ -23,7 +24,7 @@ export interface TestDetails {
 
 export interface TestProgress {
   id: string;
-  guest_id: string;
+  user_id: string; // Updated from guest_id to user_id
   test_id: string;
   status: 'in_progress' | 'completed' | 'abandoned';
   score: number | null;
@@ -33,7 +34,7 @@ export interface TestProgress {
 }
 
 export interface QuestionScore {
-  guest_id: string;
+  guest_id: string; // Will be mapped to user_id in the function
   test_id: string;
   question_id: number;
   is_correct: boolean;
@@ -192,11 +193,11 @@ export const saveQuestionScore = async (scoreData: QuestionScore): Promise<boole
 // Get test progress statistics for a guest
 export const getTestStatistics = async (guestId: string) => {
   try {
-    // Get total tests taken - Fixed to avoid TypeScript recursion error
+    // Get completed tests (avoid using count with complex queries)
     const { data: testsData, error: totalError } = await supabase
       .from('user_test_progress')
       .select('id')
-      .eq('user_id', guestId) // Changed from guest_id to user_id
+      .eq('user_id', guestId)
       .eq('status', 'completed');
     
     if (totalError) {
@@ -205,11 +206,11 @@ export const getTestStatistics = async (guestId: string) => {
     
     const totalTests = testsData?.length || 0;
     
-    // Get average score
-    const { data: scores, error: scoresError } = await supabase
+    // Get scores from completed tests
+    const { data: scoreData, error: scoresError } = await supabase
       .from('user_test_progress')
       .select('score')
-      .eq('user_id', guestId) // Changed from guest_id to user_id
+      .eq('user_id', guestId)
       .eq('status', 'completed')
       .not('score', 'is', null);
     
@@ -217,11 +218,11 @@ export const getTestStatistics = async (guestId: string) => {
       console.error("Error fetching scores:", scoresError);
     }
     
-    // Get total questions solved - Fixed to avoid TypeScript recursion error
+    // Get total questions answered
     const { data: questionsData, error: questionsError } = await supabase
       .from('scores')
       .select('id')
-      .eq('user_id', guestId); // Changed from guest_id to user_id
+      .eq('user_id', guestId);
     
     if (questionsError) {
       console.error("Error fetching questions solved:", questionsError);
@@ -229,11 +230,11 @@ export const getTestStatistics = async (guestId: string) => {
     
     const questionsSolved = questionsData?.length || 0;
     
-    // Calculate practice hours
-    const { data: timeSpent, error: timeSpentError } = await supabase
+    // Get time spent data
+    const { data: timeData, error: timeSpentError } = await supabase
       .from('user_test_progress')
       .select('time_spent')
-      .eq('user_id', guestId) // Changed from guest_id to user_id
+      .eq('user_id', guestId)
       .eq('status', 'completed')
       .not('time_spent', 'is', null);
     
@@ -242,13 +243,13 @@ export const getTestStatistics = async (guestId: string) => {
     }
     
     // Calculate average score
-    const avgScore = scores && scores.length > 0
-      ? scores.reduce((sum, item) => sum + (item.score || 0), 0) / scores.length
+    const avgScore = scoreData && scoreData.length > 0
+      ? scoreData.reduce((sum, item) => sum + (item.score || 0), 0) / scoreData.length
       : 0;
     
-    // Calculate total hours
-    const totalHours = timeSpent && timeSpent.length > 0
-      ? timeSpent.reduce((sum, item) => sum + (item.time_spent || 0), 0) / 60
+    // Calculate total practice hours
+    const totalHours = timeData && timeData.length > 0
+      ? timeData.reduce((sum, item) => sum + (item.time_spent || 0), 0) / 60 // Convert minutes to hours
       : 0;
     
     return {
