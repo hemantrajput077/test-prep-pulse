@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 export interface Question {
@@ -95,7 +94,7 @@ export const startTest = async (guestId: string, testId: string): Promise<string
     const { data: existingProgress, error: queryError } = await supabase
       .from('user_test_progress')
       .select('id')
-      .eq('guest_id', guestId)
+      .eq('user_id', guestId) // Changed from guest_id to user_id
       .eq('test_id', testId)
       .eq('status', 'in_progress')
       .maybeSingle();
@@ -114,7 +113,7 @@ export const startTest = async (guestId: string, testId: string): Promise<string
     const { data, error } = await supabase
       .from('user_test_progress')
       .insert({
-        guest_id: guestId,
+        user_id: guestId, // Changed from guest_id to user_id
         test_id: testId,
         status: 'in_progress'
       })
@@ -150,7 +149,7 @@ export const completeTest = async (
         completed_at: new Date().toISOString()
       })
       .eq('id', progressId)
-      .eq('guest_id', guestId);
+      .eq('user_id', guestId); // Changed from guest_id to user_id
     
     if (error) {
       console.error("Error completing test:", error);
@@ -170,11 +169,11 @@ export const saveQuestionScore = async (scoreData: QuestionScore): Promise<boole
     const { error } = await supabase
       .from('scores')
       .insert({
-        guest_id: scoreData.guest_id,
+        user_id: scoreData.guest_id, // Changed from guest_id to user_id
         test_id: scoreData.test_id,
         question_id: scoreData.question_id,
         is_correct: scoreData.is_correct,
-        score: scoreData.is_correct ? 1 : 0, // Adding score field
+        score: scoreData.is_correct ? 1 : 0,
         time_taken: scoreData.time_taken || null
       });
     
@@ -193,11 +192,11 @@ export const saveQuestionScore = async (scoreData: QuestionScore): Promise<boole
 // Get test progress statistics for a guest
 export const getTestStatistics = async (guestId: string) => {
   try {
-    // Get total tests taken - Fix: Changed from count to countQuery approach
+    // Get total tests taken - Fixed to avoid TypeScript recursion error
     const { data: testsData, error: totalError } = await supabase
       .from('user_test_progress')
       .select('id')
-      .eq('guest_id', guestId)
+      .eq('user_id', guestId) // Changed from guest_id to user_id
       .eq('status', 'completed');
     
     if (totalError) {
@@ -210,7 +209,7 @@ export const getTestStatistics = async (guestId: string) => {
     const { data: scores, error: scoresError } = await supabase
       .from('user_test_progress')
       .select('score')
-      .eq('guest_id', guestId)
+      .eq('user_id', guestId) // Changed from guest_id to user_id
       .eq('status', 'completed')
       .not('score', 'is', null);
     
@@ -218,11 +217,11 @@ export const getTestStatistics = async (guestId: string) => {
       console.error("Error fetching scores:", scoresError);
     }
     
-    // Get total questions solved - Fix: Changed from count to countQuery approach
+    // Get total questions solved - Fixed to avoid TypeScript recursion error
     const { data: questionsData, error: questionsError } = await supabase
       .from('scores')
       .select('id')
-      .eq('guest_id', guestId);
+      .eq('user_id', guestId); // Changed from guest_id to user_id
     
     if (questionsError) {
       console.error("Error fetching questions solved:", questionsError);
@@ -234,7 +233,7 @@ export const getTestStatistics = async (guestId: string) => {
     const { data: timeSpent, error: timeSpentError } = await supabase
       .from('user_test_progress')
       .select('time_spent')
-      .eq('guest_id', guestId)
+      .eq('user_id', guestId) // Changed from guest_id to user_id
       .eq('status', 'completed')
       .not('time_spent', 'is', null);
     
