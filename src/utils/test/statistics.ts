@@ -138,9 +138,9 @@ export const getWeakAreas = async (guestId: string): Promise<string[]> => {
   try {
     // Try to call the RPC function if it exists
     try {
-      // Fix the typing issue by specifying the function name as a type parameter
+      // Fix the typing issue by properly specifying the generic types
       const { data, error } = await supabase
-        .rpc<string[]>('get_weak_areas', { 
+        .rpc<string[], { user_id_param: string }>('get_weak_areas', { 
           user_id_param: guestId 
         });
       

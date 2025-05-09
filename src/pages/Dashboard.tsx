@@ -2,8 +2,17 @@
 import MainLayout from "@/components/layout/MainLayout";
 import DashboardOverview from "@/components/dashboard/DashboardOverview";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useEffect } from "react";
+import { toast } from "sonner";
 
 const Dashboard = () => {
+  // Show a welcome toast when dashboard loads
+  useEffect(() => {
+    toast.success("Welcome to your dashboard", {
+      description: "View your test statistics and performance data"
+    });
+  }, []);
+  
   return (
     <MainLayout>
       <div className="container px-4 py-8">
