@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 
 // Get test progress statistics for a user
@@ -139,7 +140,7 @@ export const getWeakAreas = async (guestId: string): Promise<string[]> => {
     try {
       // When using generic parameters with rpc, the first type parameter specifies the return type
       // and the second type parameter specifies the parameters type
-      const { data, error } = await supabase.rpc<string[]>('get_weak_areas', { 
+      const { data, error } = await supabase.rpc<string[], { user_id_param: string }>('get_weak_areas', { 
         user_id_param: guestId 
       });
       
