@@ -143,7 +143,8 @@ export const getWeakAreas = async (guestId: string) => {
       });
       
       if (!error && data) {
-        return data;
+        // Type assertion to handle the string array return
+        return data as string[];
       }
     } catch (rpcErr) {
       console.error("RPC function error:", rpcErr);
