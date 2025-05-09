@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 // Get test progress statistics for a user
@@ -138,8 +137,8 @@ export const getWeakAreas = async (guestId: string) => {
   try {
     // Try to call the RPC function if it exists
     try {
-      // Using correct type parameters for rpc call
-      const { data, error } = await supabase.rpc<string[]>('get_weak_areas', { 
+      // Using correct type parameters for rpc call - specify input and return types
+      const { data, error } = await supabase.rpc<string[], { user_id_param: string }>('get_weak_areas', { 
         user_id_param: guestId 
       });
       

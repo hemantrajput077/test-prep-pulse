@@ -284,7 +284,7 @@ const TestSession = () => {
     <MainLayout>
       <div className="container px-4 py-8">
         {trackingError && (
-          <Alert variant="warning" className="mb-4">
+          <Alert variant="destructive" className="mb-4">
             <AlertTitle>Unable to track your progress</AlertTitle>
             <AlertDescription>
               Your results won't be saved, but you can still take the test. Make sure you're logged in and try again later.
