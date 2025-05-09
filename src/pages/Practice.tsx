@@ -81,12 +81,18 @@ const Practice = () => {
         // Fetch weak areas
         const weakAreasData = await getWeakAreas(guestId);
         
-        setWeakAreas(weakAreasData && weakAreasData.length > 0 ? weakAreasData : [
-          "Probability",
-          "Time and Work",
-          "Reading Comprehension",
-          "Binary Search",
-        ]);
+        // Fix type safety issue - ensure we're setting a string array
+        if (Array.isArray(weakAreasData)) {
+          setWeakAreas(weakAreasData);
+        } else {
+          // Fallback to default weak areas if data is not an array
+          setWeakAreas([
+            "Probability",
+            "Time and Work",
+            "Reading Comprehension",
+            "Binary Search",
+          ]);
+        }
         
         // Update categories with real data if available
         if (categoryPerformance && categoryPerformance.length > 0) {
