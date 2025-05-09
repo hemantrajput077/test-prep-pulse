@@ -138,8 +138,11 @@ export const getWeakAreas = async (guestId: string) => {
   try {
     // Try to call the RPC function if it exists
     try {
+      // Fix the typing issue by explicitly declaring the parameters object type
       const { data, error } = await supabase.rpc('get_weak_areas', { 
         user_id_param: guestId 
+      } as {
+        user_id_param: string
       });
       
       if (!error && data) {
