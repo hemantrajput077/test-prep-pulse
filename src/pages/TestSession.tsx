@@ -38,6 +38,7 @@ const TestSession = () => {
   const [testProgressId, setTestProgressId] = useState<string | null>(null);
   const { guestId } = useGuestId();
   const [trackingError, setTrackingError] = useState(false);
+  const [startTime] = useState<Date>(new Date());
   
   // Fetch test details
   const { data: test, isLoading: testLoading } = useQuery({
@@ -109,8 +110,10 @@ const TestSession = () => {
   const createTestProgressMutation = useMutation({
     mutationFn: async () => {
       if (!testId || !guestId) {
+        console.log("Missing testId or guestId for test progress tracking");
         setTrackingError(true);
-        return null;
+        // Create a local ID for offline tracking
+        return { id: `local-${Date.now()}` };
       }
       
       try {
@@ -131,7 +134,15 @@ const TestSession = () => {
     },
     onSuccess: (data) => {
       if (data) {
+        console.log("Set test progress ID:", data.id);
         setTestProgressId(data.id);
+        
+        if (data.id.startsWith("local-")) {
+          setTrackingError(true);
+          toast.warning("Using offline mode", {
+            description: "Your results will be stored locally but not synced to your account."
+          });
+        }
       }
     },
     onError: () => {
@@ -139,6 +150,8 @@ const TestSession = () => {
         description: "Your progress may not be tracked."
       });
       setTrackingError(true);
+      // Create a fallback local progress ID
+      setTestProgressId(`local-${Date.now()}`);
     }
   });
   
@@ -156,11 +169,13 @@ const TestSession = () => {
         // Store progress in localStorage for offline/demo mode
         const historyItem = {
           id: testProgressId,
+          user_id: guestId,
           test_id: testId,
           score,
           created_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
           status: 'completed',
-          tests: { title: test?.title || "Test" }
+          tests: { title: test?.title || "Test", category: test?.category, difficulty: test?.difficulty }
         };
         
         const existingHistory = JSON.parse(localStorage.getItem('testHistory') || '[]');
@@ -171,12 +186,32 @@ const TestSession = () => {
       
       try {
         // Use the refactored completeTest function
-        const timeSpentMinutes = test ? Math.round((test.duration * 60 - timeLeft) / 60) : 0;
+        const endTime = new Date();
+        const timeSpentMinutes = test ? 
+          Math.max(1, Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60))) : 
+          Math.round((test?.duration || 0) * 60 - timeLeft) / 60;
+        
         await completeTest(testProgressId, guestId, score, timeSpentMinutes);
         setTrackingError(false);
       } catch (err) {
         console.error("Error in complete test mutation:", err);
         setTrackingError(true);
+        
+        // Fall back to localStorage
+        const historyItem = {
+          id: testProgressId,
+          user_id: guestId,
+          test_id: testId,
+          score,
+          created_at: startTime.toISOString(),
+          completed_at: new Date().toISOString(),
+          status: 'completed',
+          tests: { title: test?.title || "Test", category: test?.category, difficulty: test?.difficulty }
+        };
+        
+        const existingHistory = JSON.parse(localStorage.getItem('testHistory') || '[]');
+        existingHistory.unshift(historyItem);
+        localStorage.setItem('testHistory', JSON.stringify(existingHistory.slice(0, 10)));
       }
     },
     onError: () => {

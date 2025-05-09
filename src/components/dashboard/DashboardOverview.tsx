@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +11,7 @@ import { useGuestId } from "@/components/layout/GuestIdProvider";
 import { getTestStatistics, getPerformanceByCategory, getWeakAreas } from "@/utils/test/statistics";
 import { getTestProgressHistory } from "@/utils/test/testProgress";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 
 const DashboardOverview = () => {
   const [activeTab, setActiveTab] = useState("overview");
@@ -21,18 +23,85 @@ const DashboardOverview = () => {
     questionsSolved: "0",
     practiceHours: "0"
   });
-  const [recentTests, setRecentTests] = useState<any[]>([]);
-  const [performanceByCategory, setPerformanceByCategory] = useState<{name: string, progress: number}[]>([]);
-  const [weakAreas, setWeakAreas] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
-
+  
+  // Use React Query to fetch test history
+  const { 
+    data: recentTests,
+    isLoading: recentTestsLoading,
+    error: recentTestsError
+  } = useQuery({
+    queryKey: ['recent-test-history', guestId],
+    queryFn: async () => {
+      if (!guestId) return [];
+      const data = await getTestProgressHistory(guestId, 3);
+      
+      // Format the data for display
+      return data.map(test => ({
+        id: test.id,
+        name: test.tests?.title || "Test",
+        score: test.score || 0,
+        date: test.completed_at || test.created_at || new Date().toISOString()
+      }));
+    },
+    enabled: !!guestId
+  });
+  
+  // Use React Query for performance data
+  const {
+    data: performanceByCategory,
+    isLoading: performanceLoading
+  } = useQuery({
+    queryKey: ['category-performance', guestId],
+    queryFn: async () => {
+      if (!guestId) return [];
+      const data = await getPerformanceByCategory(guestId);
+      
+      if (data && data.length > 0) {
+        return data;
+      }
+      
+      // Fallback data
+      return [
+        { name: "Quantitative", progress: 85 },
+        { name: "Logical Reasoning", progress: 72 },
+        { name: "Verbal", progress: 65 },
+        { name: "Coding", progress: 78 },
+      ];
+    },
+    enabled: !!guestId
+  });
+  
+  // Use React Query for weak areas
+  const {
+    data: weakAreas,
+    isLoading: weakAreasLoading
+  } = useQuery({
+    queryKey: ['weak-areas', guestId],
+    queryFn: async () => {
+      if (!guestId) return [];
+      const data = await getWeakAreas(guestId);
+      
+      if (Array.isArray(data) && data.length > 0) {
+        return data;
+      }
+      
+      // Fallback data
+      return [
+        "Probability",
+        "Time and Work",
+        "Reading Comprehension",
+        "Binary Search",
+      ];
+    },
+    enabled: !!guestId
+  });
+  
+  // Fetch statistics
   useEffect(() => {
-    const fetchDashboardData = async () => {
+    const fetchStats = async () => {
       if (!guestId) return;
-
-      setLoading(true);
+      
       try {
-        // Get statistics
         const statistics = await getTestStatistics(guestId);
         setStats({
           totalTests: statistics.totalTests.toString(),
@@ -40,80 +109,34 @@ const DashboardOverview = () => {
           questionsSolved: statistics.questionsSolved.toString(),
           practiceHours: statistics.practiceHours.toString()
         });
-
-        // Get recent test history
-        const recentTestData = await getTestProgressHistory(guestId, 3);
-        
-        if (recentTestData && recentTestData.length > 0) {
-          setRecentTests(recentTestData.map(test => ({
-            id: test.id,
-            name: test.tests?.title || "Test",
-            score: test.score || 0,
-            date: test.completed_at || test.created_at || new Date().toISOString()
-          })));
-        }
-        
-        // Get performance by category
-        const categoryPerformance = await getPerformanceByCategory(guestId);
-        if (categoryPerformance.length > 0) {
-          setPerformanceByCategory(categoryPerformance);
-        } else {
-          // Fallback data
-          setPerformanceByCategory([
-            { name: "Quantitative", progress: 85 },
-            { name: "Logical Reasoning", progress: 72 },
-            { name: "Verbal", progress: 65 },
-            { name: "Coding", progress: 78 },
-          ]);
-        }
-        
-        // Get weak areas with proper type handling
-        const weakAreasData = await getWeakAreas(guestId);
-        setWeakAreas(Array.isArray(weakAreasData) ? weakAreasData : []);
-        
       } catch (error) {
-        console.error("Error fetching dashboard data:", error);
-        
-        // Set fallback data
-        setPerformanceByCategory([
-          { name: "Quantitative", progress: 85 },
-          { name: "Logical Reasoning", progress: 72 },
-          { name: "Verbal", progress: 65 },
-          { name: "Coding", progress: 78 },
-        ]);
-        
-        setWeakAreas([
-          "Probability",
-          "Time and Work",
-          "Reading Comprehension",
-          "Binary Search",
-        ]);
-      } finally {
-        setLoading(false);
+        console.error("Error fetching statistics:", error);
       }
     };
-
-    fetchDashboardData();
+    
+    fetchStats();
   }, [guestId]);
 
   // Fallback data if no real data is available
   const fallbackRecentTests = [
-    { id: 1, name: "Quantitative Aptitude - Basic", score: 85, date: "2023-04-28" },
-    { id: 2, name: "Logical Reasoning - Medium", score: 72, date: "2023-04-25" },
-    { id: 3, name: "Verbal Ability - Advanced", score: 68, date: "2023-04-20" },
+    { id: "1", name: "Quantitative Aptitude - Basic", score: 85, date: "2023-04-28" },
+    { id: "2", name: "Logical Reasoning - Medium", score: 72, date: "2023-04-25" },
+    { id: "3", name: "Verbal Ability - Advanced", score: 68, date: "2023-04-20" },
   ];
 
   const recommendedTests = [
-    { id: 1, name: "Probability Practice Set", difficulty: "Medium" },
-    { id: 2, name: "Reading Comprehension Drills", difficulty: "Hard" },
-    { id: 3, name: "Binary Search Problems", difficulty: "Medium" },
+    { id: "1", name: "Probability Practice Set", difficulty: "Medium" },
+    { id: "2", name: "Reading Comprehension Drills", difficulty: "Hard" },
+    { id: "3", name: "Binary Search Problems", difficulty: "Medium" },
   ];
 
-  const testsToDisplay = recentTests.length > 0 ? recentTests : fallbackRecentTests;
+  const testsToDisplay = recentTests && recentTests.length > 0 ? recentTests : fallbackRecentTests;
   
   const handleViewAllTests = () => {
     navigate('/tests', { state: { activeTab: 'history' } });
   };
+  
+  const isLoading = recentTestsLoading || performanceLoading || weakAreasLoading;
 
   return (
     <>
@@ -158,7 +181,7 @@ const DashboardOverview = () => {
                 <CardTitle>Recent Tests</CardTitle>
               </CardHeader>
               <CardContent>
-                {loading ? (
+                {isLoading ? (
                   <div className="flex justify-center py-6">
                     <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
                   </div>
@@ -201,7 +224,7 @@ const DashboardOverview = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {performanceByCategory.map((category) => (
+                  {performanceByCategory?.map((category) => (
                     <div key={category.name} className="space-y-1">
                       <div className="flex justify-between text-sm">
                         <span>{category.name}</span>
@@ -233,7 +256,9 @@ const DashboardOverview = () => {
                     
                     <div className="p-4 border rounded-lg bg-muted/30">
                       <h3 className="font-semibold mb-2">Areas for Improvement</h3>
-                      <p className="text-muted-foreground">Focus on {weakAreas.slice(0, 3).join(", ")} to improve your overall performance.</p>
+                      <p className="text-muted-foreground">
+                        Focus on {weakAreas ? weakAreas.slice(0, 3).join(", ") : "your weak areas"} to improve your overall performance.
+                      </p>
                     </div>
                     
                     <div className="p-4 border rounded-lg bg-muted/30">
@@ -253,7 +278,7 @@ const DashboardOverview = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {weakAreas.map((area, index) => (
+                  {weakAreas?.map((area, index) => (
                     <div key={index} className="flex items-center">
                       <span className="h-2 w-2 mr-2 rounded-full bg-amber-500"></span>
                       {area}
