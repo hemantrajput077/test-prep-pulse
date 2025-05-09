@@ -138,16 +138,16 @@ export const getWeakAreas = async (guestId: string): Promise<string[]> => {
   try {
     // Try to call the RPC function if it exists
     try {
-      // The typing issue is here - we need to adjust how we're using the generic parameters
+      // Fix the typing issue by specifying the function name as a type parameter
       const { data, error } = await supabase
-        .rpc('get_weak_areas', { 
+        .rpc<string[]>('get_weak_areas', { 
           user_id_param: guestId 
         });
       
       if (!error && data) {
         // Assert or validate that data is a string array
         if (Array.isArray(data)) {
-          return data as string[];
+          return data;
         }
       }
     } catch (rpcErr) {
