@@ -138,13 +138,14 @@ export const getWeakAreas = async (guestId: string) => {
   try {
     // Try to call the RPC function if it exists
     try {
-      // Fix the type parameters for the RPC call
-      const { data, error } = await supabase.rpc<string[], { user_id_param: string }>('get_weak_areas', { 
+      // Fixed: Correct type parameters for the RPC call
+      // First parameter is the return type, second is the parameters type
+      const { data, error } = await supabase.rpc<string[]>('get_weak_areas', { 
         user_id_param: guestId 
       });
       
       if (!error && data) {
-        return data as string[];
+        return data;
       }
     } catch (rpcErr) {
       console.error("RPC function error:", rpcErr);
