@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import MainLayout from "@/components/layout/MainLayout";
@@ -211,11 +212,15 @@ const Tests = () => {
         return matchesCategory && matchesSearch && matchesDifficulty;
       })
       .sort((a, b) => {
+        // Update sorting to handle cases where created_at might not exist in TestData
+        const aDate = 'created_at' in a ? new Date(a.created_at || Date.now()) : new Date();
+        const bDate = 'created_at' in b ? new Date(b.created_at || Date.now()) : new Date();
+        
         switch (sortOrder) {
           case "newest":
-            return new Date(b.created_at || Date.now()).getTime() - new Date(a.created_at || Date.now()).getTime();
+            return bDate.getTime() - aDate.getTime();
           case "oldest":
-            return new Date(a.created_at || Date.now()).getTime() - new Date(b.created_at || Date.now()).getTime();
+            return aDate.getTime() - bDate.getTime();
           case "a-z":
             return a.title.localeCompare(b.title);
           case "z-a":
@@ -316,8 +321,13 @@ const Tests = () => {
             ) : filteredTests && filteredTests.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredTests.map((test) => {
-                  // Make sure we have a questions property or default to 10
-                  const questionsCount = 'questions' in test ? test.questions.length : 10;
+                  // Make sure we safely handle questions property for both TestFromDB and TestData
+                  let questionsCount = 10; // Default value
+                  
+                  if ('questions' in test) {
+                    // Handle TestData type which has questions array
+                    questionsCount = Array.isArray(test.questions) ? test.questions.length : 10;
+                  }
                   
                   return (
                     <TestCard
@@ -354,8 +364,13 @@ const Tests = () => {
           <TabsContent value="recommended">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {(tests as any[])?.filter(test => test.difficulty === "Medium" || test.difficulty === "medium").slice(0, 3).map(test => {
-                // Make sure we have a questions property or default to 10
-                const questionsCount = 'questions' in test ? (test.questions?.length || 10) : 10;
+                // Safely handle questions property here too
+                let questionsCount = 10; // Default value
+                
+                if ('questions' in test) {
+                  // Handle TestData type which has questions array
+                  questionsCount = Array.isArray(test.questions) ? test.questions.length : 10;
+                }
                 
                 return (
                   <TestCard

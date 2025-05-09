@@ -31,12 +31,21 @@ export const saveQuestionScore = async (scoreData: QuestionScore): Promise<boole
 // Get topic performance statistics
 export const getTopicPerformance = async (guestId: string) => {
   try {
+    // Default mock data for when there's no performance data yet
+    const defaultData = [
+      { topicName: "Algebra", correct: 75, incorrect: 25 },
+      { topicName: "Geometry", correct: 60, incorrect: 40 },
+      { topicName: "Probability", correct: 40, incorrect: 60 },
+      { topicName: "Statistics", correct: 80, incorrect: 20 },
+    ];
+    
+    // Query scores table
     const { data, error } = await supabase
       .from('scores')
       .select(`
         score,
-        is_correct,
-        questions (
+        question_id,
+        questions:question_id (
           content
         )
       `)
@@ -45,23 +54,23 @@ export const getTopicPerformance = async (guestId: string) => {
     
     if (error) {
       console.error("Error fetching topic performance:", error);
-      return [];
+      return defaultData;
     }
     
     if (!data || data.length === 0) {
-      return [
-        { topicName: "Algebra", correct: 75, incorrect: 25 },
-        { topicName: "Geometry", correct: 60, incorrect: 40 },
-        { topicName: "Probability", correct: 40, incorrect: 60 },
-        { topicName: "Statistics", correct: 80, incorrect: 20 },
-      ];
+      return defaultData;
     }
     
     // Group data by topics (extracted from question content)
     const topicStats: Record<string, { correct: number, incorrect: number }> = {};
     
     data.forEach(score => {
-      const content = score.questions?.content || "";
+      // First check if we got questions relation data
+      if (!score.questions || typeof score.questions !== 'object') {
+        return; // Skip this score if no question data
+      }
+      
+      const content = score.questions.content || "";
       
       // Extract topic from question content (simplified approach)
       const topics = [
@@ -82,7 +91,9 @@ export const getTopicPerformance = async (guestId: string) => {
         topicStats[questionTopic] = { correct: 0, incorrect: 0 };
       }
       
-      if (score.is_correct) {
+      // Use score to determine if correct/incorrect
+      // If score is 1, it's correct; otherwise incorrect
+      if (score.score > 0) {
         topicStats[questionTopic].correct += 1;
       } else {
         topicStats[questionTopic].incorrect += 1;

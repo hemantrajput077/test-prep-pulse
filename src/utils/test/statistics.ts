@@ -106,19 +106,21 @@ export const getPerformanceByCategory = async (guestId: string) => {
     }
     
     // Group by category and calculate average scores
-    const categoryScores = data.reduce((acc: {[key: string]: {total: number, count: number}}, item) => {
+    const categoryScores: Record<string, {total: number, count: number}> = {};
+    
+    data.forEach(item => {
       const category = item.tests?.category;
-      if (!category || !item.score) return acc;
+      if (!category || !item.score) return;
       
-      if (!acc[category]) {
-        acc[category] = { total: 0, count: 0 };
+      if (!categoryScores[category]) {
+        categoryScores[category] = { total: 0, count: 0 };
       }
       
-      acc[category].total += item.score;
-      acc[category].count += 1;
+      categoryScores[category].total += item.score;
+      categoryScores[category].count += 1;
       
-      return acc;
-    }, {});
+      return;
+    });
     
     // Convert to array with average scores
     return Object.entries(categoryScores).map(([category, data]) => ({
@@ -134,22 +136,28 @@ export const getPerformanceByCategory = async (guestId: string) => {
 // Get weak areas based on scores
 export const getWeakAreas = async (guestId: string) => {
   try {
-    // Get question scores grouped by category
-    const { data, error } = await supabase.rpc('get_weak_areas', { user_id_param: guestId });
-    
-    if (error) {
-      console.error("Error fetching weak areas:", error);
+    // Try to call the RPC function if it exists
+    try {
+      const { data, error } = await supabase.rpc('get_weak_areas', { 
+        user_id_param: guestId 
+      });
       
-      // Return fallback data if the function doesn't exist
-      return [
-        "Probability",
-        "Time and Work",
-        "Reading Comprehension",
-        "Binary Search",
-      ];
+      if (!error && data) {
+        return data;
+      }
+    } catch (rpcErr) {
+      console.error("RPC function error:", rpcErr);
+      // Fall through to fallback implementation
     }
     
-    return data || [];
+    // Fallback implementation if RPC function doesn't exist or fails
+    // Return default weak areas
+    return [
+      "Probability",
+      "Time and Work",
+      "Reading Comprehension",
+      "Binary Search",
+    ];
   } catch (err) {
     console.error("Error in getWeakAreas:", err);
     return [
