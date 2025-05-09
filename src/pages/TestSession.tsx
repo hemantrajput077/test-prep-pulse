@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -8,9 +9,11 @@ import { Progress } from "@/components/ui/progress";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { generateQuestions, generateTestCards, Question, TestData } from "@/utils/testData";
 import { startTest, completeTest } from "@/utils/test/testProgress";
+import { useGuestId } from "@/components/layout/GuestIdProvider";
 
 interface TestFromDB {
   id: string;
@@ -33,6 +36,8 @@ const TestSession = () => {
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [timeLeft, setTimeLeft] = useState(0);
   const [testProgressId, setTestProgressId] = useState<string | null>(null);
+  const { guestId } = useGuestId();
+  const [trackingError, setTrackingError] = useState(false);
   
   // Fetch test details
   const { data: test, isLoading: testLoading } = useQuery({
@@ -103,21 +108,24 @@ const TestSession = () => {
   // Create test progress record when starting
   const createTestProgressMutation = useMutation({
     mutationFn: async () => {
-      if (!testId) return null;
-      
-      // Use a guest ID for anonymous tracking
-      const guestId = localStorage.getItem('guestId') || crypto.randomUUID();
-      localStorage.setItem('guestId', guestId);
+      if (!testId || !guestId) {
+        setTrackingError(true);
+        return null;
+      }
       
       try {
         // Use the refactored startTest function
         const progressId = await startTest(guestId, testId);
         if (!progressId) {
+          console.error("Failed to create test progress");
+          setTrackingError(true);
           return { id: `local-${Date.now()}` };
         }
+        setTrackingError(false);
         return { id: progressId };
       } catch (err) {
         console.error("Error in test progress creation:", err);
+        setTrackingError(true);
         return { id: `local-${Date.now()}` };
       }
     },
@@ -128,18 +136,21 @@ const TestSession = () => {
     },
     onError: () => {
       toast.error("Failed to start test", {
-        description: "Please try again."
+        description: "Your progress may not be tracked."
       });
+      setTrackingError(true);
     }
   });
   
   // Update test progress when completed
   const completeTestMutation = useMutation({
     mutationFn: async (score: number) => {
-      if (!testProgressId) return;
+      if (!testProgressId || !guestId) {
+        setTrackingError(true);
+        return;
+      }
       
       const isLocalId = testProgressId.startsWith('local-');
-      const guestId = localStorage.getItem('guestId') || '';
       
       if (isLocalId) {
         // Store progress in localStorage for offline/demo mode
@@ -160,26 +171,29 @@ const TestSession = () => {
       
       try {
         // Use the refactored completeTest function
-        const timeSpentMinutes = test ? test.duration * 60 - timeLeft : 0;
+        const timeSpentMinutes = test ? Math.round((test.duration * 60 - timeLeft) / 60) : 0;
         await completeTest(testProgressId, guestId, score, timeSpentMinutes);
+        setTrackingError(false);
       } catch (err) {
         console.error("Error in complete test mutation:", err);
+        setTrackingError(true);
       }
     },
     onError: () => {
       toast.error("Failed to save test results", {
         description: "Your score may not be recorded."
       });
+      setTrackingError(true);
     }
   });
   
   // Initialize test session
   useEffect(() => {
-    if (test && !testProgressId) {
+    if (test && !testProgressId && guestId) {
       setTimeLeft(test.duration * 60);
       createTestProgressMutation.mutate();
     }
-  }, [test, testProgressId]);
+  }, [test, testProgressId, guestId]);
   
   // Format time as MM:SS
   const formatTime = (seconds: number) => {
@@ -269,6 +283,14 @@ const TestSession = () => {
   return (
     <MainLayout>
       <div className="container px-4 py-8">
+        {trackingError && (
+          <Alert variant="warning" className="mb-4">
+            <AlertTitle>Unable to track your progress</AlertTitle>
+            <AlertDescription>
+              Your results won't be saved, but you can still take the test. Make sure you're logged in and try again later.
+            </AlertDescription>
+          </Alert>
+        )}
         <div className="flex flex-col items-center">
           <Card className="w-full max-w-3xl">
             <CardHeader>

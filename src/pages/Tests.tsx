@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "react-router-dom";
 import MainLayout from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +14,7 @@ import { generateTestCards, TestData } from "@/utils/testData";
 import { useGuestId } from "@/components/layout/GuestIdProvider";
 import { TestDetails } from "@/utils/test/types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // Define interface for tests from database
 interface TestFromDB {
@@ -33,8 +35,11 @@ interface TestProgress {
   status: string;
   score: number | null;
   created_at: string;
+  completed_at?: string;
   tests?: {
     title: string;
+    category?: string;
+    difficulty?: string;
   };
 }
 
@@ -45,6 +50,14 @@ const Tests = () => {
   const [filterDifficulty, setFilterDifficulty] = useState<"All" | "Easy" | "Medium" | "Hard">("All");
   const [currentTab, setCurrentTab] = useState("browse");
   const { guestId } = useGuestId();
+  const location = useLocation();
+  
+  // Check if we need to show history tab based on navigation state
+  useEffect(() => {
+    if (location.state && location.state.activeTab === 'history') {
+      setCurrentTab('history');
+    }
+  }, [location]);
   
   // Use our Supabase database to fetch tests
   const { data: testsFromDb, isLoading, error } = useQuery({
@@ -68,14 +81,15 @@ const Tests = () => {
   const tests = testsFromDb?.length > 0 ? testsFromDb : generateTestCards();
   
   // Use Supabase to track test history using our guest ID
-  const [testHistory, setTestHistory] = useState<TestProgress[]>([]);
-  const [allTestHistory, setAllTestHistory] = useState<TestProgress[]>([]);
-  
-  useEffect(() => {
-    if (!guestId) return;
-    
-    // Fetch the test history for the current guest ID
-    const fetchTestHistory = async () => {
+  const { 
+    data: testHistoryData,
+    isLoading: historyLoading,
+    refetch: refetchHistory
+  } = useQuery({
+    queryKey: ['test-history', guestId],
+    queryFn: async () => {
+      if (!guestId) return [];
+      
       try {
         const { data, error } = await supabase
           .from('user_test_progress')
@@ -85,44 +99,48 @@ const Tests = () => {
             status,
             score,
             created_at,
+            completed_at,
             tests (
-              title
+              title,
+              category,
+              difficulty
             )
           `)
           .eq('user_id', guestId)
           .eq('status', 'completed')
-          .order('created_at', { ascending: false });
+          .order('completed_at', { ascending: false });
         
-        if (!error && data) {
-          // Set recent test history (last 3)
-          setTestHistory(data.slice(0, 3));
-          // Set all test history
-          setAllTestHistory(data);
-          // Also save to localStorage as backup
+        if (error) throw error;
+        
+        // Also save to localStorage as backup
+        if (data && data.length > 0) {
           localStorage.setItem('testHistory', JSON.stringify(data));
-        } else if (error) {
-          console.error("Error fetching test history:", error);
-          // Try to fall back to localStorage
-          const storedHistory = localStorage.getItem('testHistory');
-          if (storedHistory) {
-            try {
-              const parsed = JSON.parse(storedHistory);
-              setTestHistory(parsed.slice(0, 3));
-              setAllTestHistory(parsed);
-            } catch (e) {
-              console.error("Failed to parse test history:", e);
-              setTestHistory([]);
-              setAllTestHistory([]);
-            }
-          }
         }
+        
+        return data as TestProgress[];
       } catch (err) {
         console.error("Error in test history fetch:", err);
+        
+        // Try to fall back to localStorage
+        const storedHistory = localStorage.getItem('testHistory');
+        if (storedHistory) {
+          try {
+            return JSON.parse(storedHistory) as TestProgress[];
+          } catch (e) {
+            console.error("Failed to parse test history:", e);
+            return [];
+          }
+        }
+        
+        return [];
       }
-    };
-    
-    fetchTestHistory();
-  }, [guestId]);
+    },
+    enabled: !!guestId
+  });
+  
+  // Split test history into recent and all
+  const recentTestHistory = testHistoryData?.slice(0, 3) || [];
+  const allTestHistory = testHistoryData || [];
 
   // Error handling
   useEffect(() => {
@@ -231,15 +249,6 @@ const Tests = () => {
       });
   }, [tests, activeCategory, searchQuery, filterDifficulty, sortOrder]);
 
-  // Handle viewing all test history
-  const handleViewAllTests = () => {
-    setCurrentTab("history");
-    const historyTab = document.querySelector('[data-value="history"]');
-    if (historyTab) {
-      historyTab.dispatchEvent(new Event('click', { bubbles: true }));
-    }
-  };
-
   return (
     <MainLayout>
       <div className="container px-4 py-8">
@@ -315,8 +324,10 @@ const Tests = () => {
           
           <TabsContent value="browse">
             {isLoading ? (
-              <div className="flex justify-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[1, 2, 3, 4, 5, 6].map(i => (
+                  <Skeleton key={i} className="h-64 w-full rounded-lg" />
+                ))}
               </div>
             ) : filteredTests && filteredTests.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -390,14 +401,20 @@ const Tests = () => {
           </TabsContent>
           
           <TabsContent value="history">
-            {allTestHistory && allTestHistory.length > 0 ? (
+            {historyLoading ? (
+              <div className="space-y-4">
+                {[1, 2, 3].map(i => (
+                  <Skeleton key={i} className="h-24 w-full rounded-lg" />
+                ))}
+              </div>
+            ) : allTestHistory && allTestHistory.length > 0 ? (
               <div className="rounded-lg border bg-card shadow-sm divide-y">
                 {allTestHistory.map((item: TestProgress) => (
                   <div key={item.id} className="p-4 flex items-center justify-between">
                     <div>
                       <h3 className="font-medium">{item.tests?.title || "Test"}</h3>
                       <p className="text-sm text-muted-foreground">
-                        Completed on {new Date(item.created_at).toLocaleDateString()}
+                        Completed on {new Date(item.completed_at || item.created_at).toLocaleDateString()}
                       </p>
                     </div>
                     <div className="flex items-center gap-4">

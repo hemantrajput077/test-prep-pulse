@@ -4,6 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 // Start a test for a user
 export const startTest = async (guestId: string, testId: string): Promise<string | null> => {
   try {
+    if (!guestId || !testId) {
+      console.error("Missing required parameters for startTest");
+      return null;
+    }
+
     // Check if there's an existing in-progress test
     const { data: existingProgress, error: queryError } = await supabase
       .from('user_test_progress')
@@ -20,6 +25,7 @@ export const startTest = async (guestId: string, testId: string): Promise<string
     
     // If there's an existing in-progress test, return its ID
     if (existingProgress?.id) {
+      console.log("Resuming existing test progress:", existingProgress.id);
       return existingProgress.id;
     }
     
@@ -40,6 +46,7 @@ export const startTest = async (guestId: string, testId: string): Promise<string
       return null;
     }
     
+    console.log("Created new test progress:", data.id);
     return data.id;
   } catch (err) {
     console.error("Error in startTest:", err);
@@ -55,6 +62,11 @@ export const completeTest = async (
   timeSpent: number
 ): Promise<boolean> => {
   try {
+    if (!progressId || !guestId) {
+      console.error("Missing required parameters for completeTest");
+      return false;
+    }
+
     const { error } = await supabase
       .from('user_test_progress')
       .update({
@@ -71,6 +83,7 @@ export const completeTest = async (
       return false;
     }
     
+    console.log("Successfully completed test:", progressId);
     return true;
   } catch (err) {
     console.error("Error in completeTest:", err);
@@ -81,6 +94,11 @@ export const completeTest = async (
 // Get test progress history for a user
 export const getTestProgressHistory = async (guestId: string, limit?: number) => {
   try {
+    if (!guestId) {
+      console.error("Missing guestId for getTestProgressHistory");
+      return [];
+    }
+
     let query = supabase
       .from('user_test_progress')
       .select(`
@@ -98,7 +116,8 @@ export const getTestProgressHistory = async (guestId: string, limit?: number) =>
         )
       `)
       .eq('user_id', guestId)
-      .order('created_at', { ascending: false });
+      .eq('status', 'completed')
+      .order('completed_at', { ascending: false });
     
     if (limit) {
       query = query.limit(limit);

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -68,19 +67,10 @@ const DashboardOverview = () => {
           ]);
         }
         
-        // Get weak areas
+        // Get weak areas with proper type handling
         const weakAreasData = await getWeakAreas(guestId);
-        if (weakAreasData && weakAreasData.length > 0) {
-          setWeakAreas(weakAreasData);
-        } else {
-          // Fallback data
-          setWeakAreas([
-            "Probability",
-            "Time and Work",
-            "Reading Comprehension",
-            "Binary Search",
-          ]);
-        }
+        setWeakAreas(Array.isArray(weakAreasData) ? weakAreasData : []);
+        
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
         
