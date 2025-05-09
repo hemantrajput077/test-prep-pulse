@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 // Get test progress statistics for a user
@@ -138,13 +137,17 @@ export const getWeakAreas = async (guestId: string): Promise<string[]> => {
   try {
     // Try to call the RPC function if it exists
     try {
-      // Correctly specify both type parameters for the RPC call
-      const { data, error } = await supabase.rpc<string[], { user_id_param: string }>('get_weak_areas', { 
+      // When using generic parameters with rpc, the first type parameter specifies the return type
+      // and the second type parameter specifies the parameters type
+      const { data, error } = await supabase.rpc<string[]>('get_weak_areas', { 
         user_id_param: guestId 
       });
       
       if (!error && data) {
-        return data;
+        // Assert or validate that data is a string array
+        if (Array.isArray(data)) {
+          return data;
+        }
       }
     } catch (rpcErr) {
       console.error("RPC function error:", rpcErr);
