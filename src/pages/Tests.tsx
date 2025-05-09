@@ -11,6 +11,7 @@ import { toast } from "@/components/ui/sonner";
 import { generateTestCards, TestData } from "@/utils/testData";
 import { useGuestId } from "@/components/layout/GuestIdProvider";
 import { TestDetails } from "@/utils/test/types";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // Define interface for tests from database
 interface TestFromDB {
@@ -39,6 +40,9 @@ interface TestProgress {
 const Tests = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "a-z" | "z-a">("newest");
+  const [filterDifficulty, setFilterDifficulty] = useState<"All" | "Easy" | "Medium" | "Hard">("All");
+  const [currentTab, setCurrentTab] = useState("browse");
   const { guestId } = useGuestId();
   
   // Use our Supabase database to fetch tests
@@ -64,6 +68,7 @@ const Tests = () => {
   
   // Use Supabase to track test history using our guest ID
   const [testHistory, setTestHistory] = useState<TestProgress[]>([]);
+  const [allTestHistory, setAllTestHistory] = useState<TestProgress[]>([]);
   
   useEffect(() => {
     if (!guestId) return;
@@ -83,13 +88,15 @@ const Tests = () => {
               title
             )
           `)
-          .eq('guest_id', guestId)
+          .eq('user_id', guestId)
           .eq('status', 'completed')
-          .order('created_at', { ascending: false })
-          .limit(3);
+          .order('created_at', { ascending: false });
         
-        if (!error && data && data.length > 0) {
-          setTestHistory(data);
+        if (!error && data) {
+          // Set recent test history (last 3)
+          setTestHistory(data.slice(0, 3));
+          // Set all test history
+          setAllTestHistory(data);
           // Also save to localStorage as backup
           localStorage.setItem('testHistory', JSON.stringify(data));
         } else if (error) {
@@ -98,10 +105,13 @@ const Tests = () => {
           const storedHistory = localStorage.getItem('testHistory');
           if (storedHistory) {
             try {
-              setTestHistory(JSON.parse(storedHistory));
+              const parsed = JSON.parse(storedHistory);
+              setTestHistory(parsed.slice(0, 3));
+              setAllTestHistory(parsed);
             } catch (e) {
               console.error("Failed to parse test history:", e);
               setTestHistory([]);
+              setAllTestHistory([]);
             }
           }
         }
@@ -185,14 +195,45 @@ const Tests = () => {
     }
   };
   
-  // Fixed the infinite type recursion error by using explicit typing
-  const filteredTests = tests ? (tests as (TestFromDB | TestData)[]).filter((test) => {
-    const matchesCategory = activeCategory === "All" || test.category === activeCategory;
-    const matchesSearch = 
-      test.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      (test.description && test.description.toLowerCase().includes(searchQuery.toLowerCase()));
-    return matchesCategory && matchesSearch;
-  }) : [];
+  // Apply filters and sorting to tests
+  const filteredTests = React.useMemo(() => {
+    if (!tests) return [];
+    
+    return (tests as (TestFromDB | TestData)[])
+      .filter((test) => {
+        const matchesCategory = activeCategory === "All" || test.category === activeCategory;
+        const matchesSearch = 
+          test.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+          (test.description && test.description.toLowerCase().includes(searchQuery.toLowerCase()));
+        const matchesDifficulty = filterDifficulty === "All" || 
+          test.difficulty.toLowerCase() === filterDifficulty.toLowerCase();
+        
+        return matchesCategory && matchesSearch && matchesDifficulty;
+      })
+      .sort((a, b) => {
+        switch (sortOrder) {
+          case "newest":
+            return new Date(b.created_at || Date.now()).getTime() - new Date(a.created_at || Date.now()).getTime();
+          case "oldest":
+            return new Date(a.created_at || Date.now()).getTime() - new Date(b.created_at || Date.now()).getTime();
+          case "a-z":
+            return a.title.localeCompare(b.title);
+          case "z-a":
+            return b.title.localeCompare(a.title);
+          default:
+            return 0;
+        }
+      });
+  }, [tests, activeCategory, searchQuery, filterDifficulty, sortOrder]);
+
+  // Handle viewing all test history
+  const handleViewAllTests = () => {
+    setCurrentTab("history");
+    const historyTab = document.querySelector('[data-value="history"]');
+    if (historyTab) {
+      historyTab.dispatchEvent(new Event('click', { bubbles: true }));
+    }
+  };
 
   return (
     <MainLayout>
@@ -217,12 +258,28 @@ const Tests = () => {
               />
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm">
-                Filter
-              </Button>
-              <Button variant="outline" size="sm">
-                Sort
-              </Button>
+              <Select value={filterDifficulty} onValueChange={(value) => setFilterDifficulty(value as any)}>
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue placeholder="Difficulty" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="All">All Levels</SelectItem>
+                  <SelectItem value="Easy">Easy</SelectItem>
+                  <SelectItem value="Medium">Medium</SelectItem>
+                  <SelectItem value="Hard">Hard</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={sortOrder} onValueChange={(value) => setSortOrder(value as any)}>
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue placeholder="Sort By" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest">Newest</SelectItem>
+                  <SelectItem value="oldest">Oldest</SelectItem>
+                  <SelectItem value="a-z">A-Z</SelectItem>
+                  <SelectItem value="z-a">Z-A</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
           
@@ -244,7 +301,7 @@ const Tests = () => {
           </div>
         </div>
         
-        <Tabs defaultValue="browse" className="animate-in">
+        <Tabs defaultValue="browse" className="animate-in" value={currentTab} onValueChange={setCurrentTab}>
           <TabsList className="mb-6">
             <TabsTrigger value="browse">Browse Tests</TabsTrigger>
             <TabsTrigger value="recommended">Recommended</TabsTrigger>
@@ -260,7 +317,7 @@ const Tests = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredTests.map((test) => {
                   // Make sure we have a questions property or default to 10
-                  const questionsCount = 'questions' in test ? test.questions : 10;
+                  const questionsCount = 'questions' in test ? test.questions.length : 10;
                   
                   return (
                     <TestCard
@@ -285,6 +342,7 @@ const Tests = () => {
                   onClick={() => {
                     setSearchQuery("");
                     setActiveCategory("All");
+                    setFilterDifficulty("All");
                   }}
                 >
                   Clear filters
@@ -297,7 +355,7 @@ const Tests = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {(tests as any[])?.filter(test => test.difficulty === "Medium" || test.difficulty === "medium").slice(0, 3).map(test => {
                 // Make sure we have a questions property or default to 10
-                const questionsCount = 'questions' in test ? test.questions : 10;
+                const questionsCount = 'questions' in test ? (test.questions?.length || 10) : 10;
                 
                 return (
                   <TestCard
@@ -317,9 +375,9 @@ const Tests = () => {
           </TabsContent>
           
           <TabsContent value="history">
-            {testHistory && testHistory.length > 0 ? (
+            {allTestHistory && allTestHistory.length > 0 ? (
               <div className="rounded-lg border bg-card shadow-sm divide-y">
-                {testHistory.map((item: TestProgress) => (
+                {allTestHistory.map((item: TestProgress) => (
                   <div key={item.id} className="p-4 flex items-center justify-between">
                     <div>
                       <h3 className="font-medium">{item.tests?.title || "Test"}</h3>
@@ -348,6 +406,7 @@ const Tests = () => {
                 <Button 
                   variant="link" 
                   onClick={() => {
+                    setCurrentTab("browse");
                     document.querySelector('[data-value="browse"]')?.dispatchEvent(
                       new Event('click', { bubbles: true })
                     );

@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 
 // Start a test for a user
@@ -28,7 +29,8 @@ export const startTest = async (guestId: string, testId: string): Promise<string
       .insert({
         user_id: guestId,
         test_id: testId,
-        status: 'in_progress'
+        status: 'in_progress',
+        started_at: new Date().toISOString()
       })
       .select('id')
       .single();
@@ -73,5 +75,45 @@ export const completeTest = async (
   } catch (err) {
     console.error("Error in completeTest:", err);
     return false;
+  }
+};
+
+// Get test progress history for a user
+export const getTestProgressHistory = async (guestId: string, limit?: number) => {
+  try {
+    let query = supabase
+      .from('user_test_progress')
+      .select(`
+        id,
+        test_id,
+        status,
+        score,
+        created_at,
+        completed_at,
+        time_spent,
+        tests (
+          title,
+          category,
+          difficulty
+        )
+      `)
+      .eq('user_id', guestId)
+      .order('created_at', { ascending: false });
+    
+    if (limit) {
+      query = query.limit(limit);
+    }
+    
+    const { data, error } = await query;
+    
+    if (error) {
+      console.error("Error fetching test history:", error);
+      return [];
+    }
+    
+    return data || [];
+  } catch (err) {
+    console.error("Error in getTestProgressHistory:", err);
+    return [];
   }
 };

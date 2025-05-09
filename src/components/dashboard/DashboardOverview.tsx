@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,12 +8,14 @@ import { Progress } from "@/components/ui/progress";
 import PerformanceChart from "@/components/dashboard/PerformanceChart";
 import TopicAnalysis from "@/components/dashboard/TopicAnalysis";
 import { useGuestId } from "@/components/layout/GuestIdProvider";
-import { getTestStatistics } from "@/utils/test/statistics";
-import { supabase } from "@/integrations/supabase/client";
+import { getTestStatistics, getPerformanceByCategory, getWeakAreas } from "@/utils/test/statistics";
+import { getTestProgressHistory } from "@/utils/test/testProgress";
+import { useNavigate } from "react-router-dom";
 
 const DashboardOverview = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const { guestId } = useGuestId();
+  const navigate = useNavigate();
   const [stats, setStats] = useState({
     totalTests: "0",
     avgScore: "0%",
@@ -20,6 +23,8 @@ const DashboardOverview = () => {
     practiceHours: "0"
   });
   const [recentTests, setRecentTests] = useState<any[]>([]);
+  const [performanceByCategory, setPerformanceByCategory] = useState<{name: string, progress: number}[]>([]);
+  const [weakAreas, setWeakAreas] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -37,33 +42,62 @@ const DashboardOverview = () => {
           practiceHours: statistics.practiceHours.toString()
         });
 
-        // Get recent tests
-        const { data: recentTestData } = await supabase
-          .from('user_test_progress')
-          .select(`
-            id,
-            score,
-            completed_at,
-            tests (
-              id,
-              title
-            )
-          `)
-          .eq('user_id', guestId)
-          .eq('status', 'completed')
-          .order('completed_at', { ascending: false })
-          .limit(3);
-
+        // Get recent test history
+        const recentTestData = await getTestProgressHistory(guestId, 3);
+        
         if (recentTestData && recentTestData.length > 0) {
           setRecentTests(recentTestData.map(test => ({
             id: test.id,
             name: test.tests?.title || "Test",
             score: test.score || 0,
-            date: test.completed_at || new Date().toISOString()
+            date: test.completed_at || test.created_at || new Date().toISOString()
           })));
+        }
+        
+        // Get performance by category
+        const categoryPerformance = await getPerformanceByCategory(guestId);
+        if (categoryPerformance.length > 0) {
+          setPerformanceByCategory(categoryPerformance);
+        } else {
+          // Fallback data
+          setPerformanceByCategory([
+            { name: "Quantitative", progress: 85 },
+            { name: "Logical Reasoning", progress: 72 },
+            { name: "Verbal", progress: 65 },
+            { name: "Coding", progress: 78 },
+          ]);
+        }
+        
+        // Get weak areas
+        const weakAreasData = await getWeakAreas(guestId);
+        if (weakAreasData && weakAreasData.length > 0) {
+          setWeakAreas(weakAreasData);
+        } else {
+          // Fallback data
+          setWeakAreas([
+            "Probability",
+            "Time and Work",
+            "Reading Comprehension",
+            "Binary Search",
+          ]);
         }
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
+        
+        // Set fallback data
+        setPerformanceByCategory([
+          { name: "Quantitative", progress: 85 },
+          { name: "Logical Reasoning", progress: 72 },
+          { name: "Verbal", progress: 65 },
+          { name: "Coding", progress: 78 },
+        ]);
+        
+        setWeakAreas([
+          "Probability",
+          "Time and Work",
+          "Reading Comprehension",
+          "Binary Search",
+        ]);
       } finally {
         setLoading(false);
       }
@@ -79,20 +113,6 @@ const DashboardOverview = () => {
     { id: 3, name: "Verbal Ability - Advanced", score: 68, date: "2023-04-20" },
   ];
 
-  const performanceByCategory = [
-    { name: "Quantitative", progress: 85 },
-    { name: "Logical Reasoning", progress: 72 },
-    { name: "Verbal", progress: 65 },
-    { name: "Coding", progress: 78 },
-  ];
-
-  const weakAreas = [
-    "Probability",
-    "Time and Work",
-    "Reading Comprehension",
-    "Binary Search",
-  ];
-
   const recommendedTests = [
     { id: 1, name: "Probability Practice Set", difficulty: "Medium" },
     { id: 2, name: "Reading Comprehension Drills", difficulty: "Hard" },
@@ -100,6 +120,10 @@ const DashboardOverview = () => {
   ];
 
   const testsToDisplay = recentTests.length > 0 ? recentTests : fallbackRecentTests;
+  
+  const handleViewAllTests = () => {
+    navigate('/tests', { state: { activeTab: 'history' } });
+  };
 
   return (
     <>
@@ -175,7 +199,7 @@ const DashboardOverview = () => {
                     ))}
                   </div>
                 )}
-                <Button variant="outline" size="sm" className="w-full mt-4">
+                <Button variant="outline" size="sm" className="w-full mt-4" onClick={handleViewAllTests}>
                   View All Tests
                 </Button>
               </CardContent>
@@ -219,7 +243,7 @@ const DashboardOverview = () => {
                     
                     <div className="p-4 border rounded-lg bg-muted/30">
                       <h3 className="font-semibold mb-2">Areas for Improvement</h3>
-                      <p className="text-muted-foreground">Focus on Probability, Reading Comprehension, and Binary Search to improve your overall performance.</p>
+                      <p className="text-muted-foreground">Focus on {weakAreas.slice(0, 3).join(", ")} to improve your overall performance.</p>
                     </div>
                     
                     <div className="p-4 border rounded-lg bg-muted/30">

@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 // Get test progress statistics for a user
 export const getTestStatistics = async (guestId: string) => {
   try {
-    // Get completed tests (avoid using count with complex queries)
+    // Get completed tests count
     const { data: testsData, error: totalError } = await supabase
       .from('user_test_progress')
       .select('id')
@@ -77,5 +77,86 @@ export const getTestStatistics = async (guestId: string) => {
       questionsSolved: 0,
       practiceHours: '0.0'
     };
+  }
+};
+
+// Get a breakdown of test performance by category
+export const getPerformanceByCategory = async (guestId: string) => {
+  try {
+    // Get test results with category information
+    const { data, error } = await supabase
+      .from('user_test_progress')
+      .select(`
+        score,
+        tests (
+          category
+        )
+      `)
+      .eq('user_id', guestId)
+      .eq('status', 'completed')
+      .not('score', 'is', null);
+    
+    if (error) {
+      console.error("Error fetching category performance:", error);
+      return [];
+    }
+    
+    if (!data || data.length === 0) {
+      return [];
+    }
+    
+    // Group by category and calculate average scores
+    const categoryScores = data.reduce((acc: {[key: string]: {total: number, count: number}}, item) => {
+      const category = item.tests?.category;
+      if (!category || !item.score) return acc;
+      
+      if (!acc[category]) {
+        acc[category] = { total: 0, count: 0 };
+      }
+      
+      acc[category].total += item.score;
+      acc[category].count += 1;
+      
+      return acc;
+    }, {});
+    
+    // Convert to array with average scores
+    return Object.entries(categoryScores).map(([category, data]) => ({
+      name: category,
+      progress: Math.round(data.total / data.count)
+    }));
+  } catch (err) {
+    console.error("Error in getPerformanceByCategory:", err);
+    return [];
+  }
+};
+
+// Get weak areas based on scores
+export const getWeakAreas = async (guestId: string) => {
+  try {
+    // Get question scores grouped by category
+    const { data, error } = await supabase.rpc('get_weak_areas', { user_id_param: guestId });
+    
+    if (error) {
+      console.error("Error fetching weak areas:", error);
+      
+      // Return fallback data if the function doesn't exist
+      return [
+        "Probability",
+        "Time and Work",
+        "Reading Comprehension",
+        "Binary Search",
+      ];
+    }
+    
+    return data || [];
+  } catch (err) {
+    console.error("Error in getWeakAreas:", err);
+    return [
+      "Probability",
+      "Time and Work",
+      "Reading Comprehension",
+      "Binary Search",
+    ];
   }
 };
