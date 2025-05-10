@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 // Get test progress statistics for a user
@@ -133,22 +132,19 @@ export const getPerformanceByCategory = async (guestId: string) => {
   }
 };
 
-// Fix: Properly handle the RPC call type
+// Properly handle the RPC call type
 export const getWeakAreas = async (guestId: string): Promise<string[]> => {
   try {
     // Try to call the RPC function if it exists
     try {
-      // Fix the typing issue by using a more general approach
+      // Fix the typing issue by explicitly typing the RPC call
       const { data, error } = await supabase
-        .rpc('get_weak_areas', { 
+        .rpc<string[]>('get_weak_areas', { 
           user_id_param: guestId 
         });
       
       if (!error && data) {
-        // Validate and return the data as string array
-        if (Array.isArray(data)) {
-          return data as string[];
-        }
+        return data;
       }
     } catch (rpcErr) {
       console.error("RPC function error:", rpcErr);
@@ -156,7 +152,6 @@ export const getWeakAreas = async (guestId: string): Promise<string[]> => {
     }
     
     // Fallback implementation if RPC function doesn't exist or fails
-    // Return default weak areas
     return [
       "Probability",
       "Time and Work",
