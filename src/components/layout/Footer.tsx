@@ -1,11 +1,7 @@
-
 import { Link } from "react-router-dom";
-
 const Footer = () => {
   const currentYear = new Date().getFullYear();
-  
-  return (
-    <footer className="bg-muted/40 border-t">
+  return <footer className="bg-muted/40 border-t">
       <div className="container px-4 py-10 md:py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="space-y-4">
@@ -13,7 +9,7 @@ const Footer = () => {
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-500 to-accent-600 flex items-center justify-center text-white font-bold">
                 TP
               </div>
-              <span className="font-bold text-xl">TestPrepPulse</span>
+              <span className="font-bold text-xl">SkillCheck</span>
             </Link>
             <p className="text-muted-foreground text-sm">
               Your one-stop platform for technical assessment preparation and practice.
@@ -83,8 +79,6 @@ const Footer = () => {
           <p>© {currentYear} TestPrepPulse. All rights reserved.</p>
         </div>
       </div>
-    </footer>
-  );
+    </footer>;
 };
-
 export default Footer;

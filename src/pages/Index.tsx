@@ -1,19 +1,14 @@
-
 import { Link } from "react-router-dom";
 import MainLayout from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
-
 const Index = () => {
-  return (
-    <MainLayout>
+  return <MainLayout>
       <div className="container px-4">
         <section className="py-12 md:py-24 lg:py-32 xl:py-40">
           <div className="container px-4 md:px-6">
             <div className="flex flex-col items-center space-y-4 text-center">
               <div className="space-y-2">
-                <h1 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl lg:text-6xl/none">
-                  Ace Your Next Test with PrepMaster
-                </h1>
+                <h1 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl lg:text-6xl/none">Ace Your Next Test with Skill Check</h1>
                 <p className="mx-auto max-w-[700px] text-gray-500 md:text-xl dark:text-gray-400">
                   The ultimate practice platform for aptitude tests, coding interviews, and more. Start mastering your skills today.
                 </p>
@@ -81,8 +76,6 @@ const Index = () => {
           </div>
         </section>
       </div>
-    </MainLayout>
-  );
+    </MainLayout>;
 };
-
 export default Index;
