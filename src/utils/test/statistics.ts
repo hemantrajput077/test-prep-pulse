@@ -133,21 +133,21 @@ export const getPerformanceByCategory = async (guestId: string) => {
   }
 };
 
-// Get weak areas based on scores
+// Fix: Properly handle the RPC call type
 export const getWeakAreas = async (guestId: string): Promise<string[]> => {
   try {
     // Try to call the RPC function if it exists
     try {
-      // Fix the typing issue by properly specifying the generic types
+      // Fix the typing issue by using a more general approach
       const { data, error } = await supabase
-        .rpc<string[], { user_id_param: string }>('get_weak_areas', { 
+        .rpc('get_weak_areas', { 
           user_id_param: guestId 
         });
       
       if (!error && data) {
-        // Assert or validate that data is a string array
+        // Validate and return the data as string array
         if (Array.isArray(data)) {
-          return data;
+          return data as string[];
         }
       }
     } catch (rpcErr) {

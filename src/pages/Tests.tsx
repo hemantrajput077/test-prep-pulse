@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "react-router-dom";
@@ -9,12 +8,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TestCard from "@/components/tests/TestCard";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/components/ui/sonner";
+import { toast } from "sonner";
 import { generateTestCards, TestData } from "@/utils/testData";
 import { useGuestId } from "@/components/layout/GuestIdProvider";
 import { TestDetails } from "@/utils/test/types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getTestProgressHistory } from "@/utils/test/testProgress";
 
 // Define interface for tests from database
 interface TestFromDB {
@@ -80,63 +80,53 @@ const Tests = () => {
   // Fall back to local test data if database query fails
   const tests = testsFromDb?.length > 0 ? testsFromDb : generateTestCards();
   
-  // Use Supabase to track test history using our guest ID
+  // Enhanced version of test history fetch with better error handling and fallbacks
   const { 
     data: testHistoryData,
     isLoading: historyLoading,
-    refetch: refetchHistory
+    refetch: refetchHistory,
+    error: historyError
   } = useQuery({
     queryKey: ['test-history', guestId],
     queryFn: async () => {
       if (!guestId) return [];
       
       try {
-        const { data, error } = await supabase
-          .from('user_test_progress')
-          .select(`
-            id,
-            test_id,
-            status,
-            score,
-            created_at,
-            completed_at,
-            tests (
-              title,
-              category,
-              difficulty
-            )
-          `)
-          .eq('user_id', guestId)
-          .eq('status', 'completed')
-          .order('completed_at', { ascending: false });
-        
-        if (error) throw error;
-        
-        // Also save to localStorage as backup
-        if (data && data.length > 0) {
-          localStorage.setItem('testHistory', JSON.stringify(data));
-        }
-        
-        return data as TestProgress[];
+        // Use the utility function to get test progress history
+        const history = await getTestProgressHistory(guestId);
+        console.log("Fetched test history:", history);
+        return history;
       } catch (err) {
         console.error("Error in test history fetch:", err);
+        toast.error("Failed to load test history", { 
+          description: "Using locally stored history instead" 
+        });
         
-        // Try to fall back to localStorage
+        // Get fallback history from localStorage
         const storedHistory = localStorage.getItem('testHistory');
         if (storedHistory) {
           try {
-            return JSON.parse(storedHistory) as TestProgress[];
+            return JSON.parse(storedHistory);
           } catch (e) {
             console.error("Failed to parse test history:", e);
             return [];
           }
         }
-        
         return [];
       }
     },
     enabled: !!guestId
   });
+  
+  // If there was an error fetching the test history, show a toast
+  useEffect(() => {
+    if (historyError) {
+      toast.error("Failed to load test history", { 
+        description: "Please try again later" 
+      });
+      console.error("Test history error:", historyError);
+    }
+  }, [historyError]);
   
   // Split test history into recent and all
   const recentTestHistory = testHistoryData?.slice(0, 3) || [];
@@ -427,7 +417,13 @@ const Tests = () => {
                           {item.score ? `${item.score}%` : "N/A"}
                         </p>
                       </div>
-                      <Button size="sm" variant="outline">View Details</Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => toast.info(`Test details for ${item.tests?.title || "Test"}`)}
+                      >
+                        View Details
+                      </Button>
                     </div>
                   </div>
                 ))}
